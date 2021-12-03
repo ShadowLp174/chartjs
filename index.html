@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <h1>Chart.JS</h1>
+
+  <div class="chart"></div>
+
+  <script>
+  function Chart() {
+    var width = 0; var height = 0;
+    var options = {
+      style: {
+        backgroundColor: "#282c34",
+        uiColor: "#9da5b4",
+        series: {
+          color: "#f45b5b"
+        }
+      }
+    }
+
+    var chart = document.createElement("canvas");
+    var ctx;
+    var widthDataOffset = 20;
+    var heightDataOffset = 20;
+
+    var data = {
+      /*series: [],
+      xAxis: []*/
+    };
+
+    this.properties = {
+      get context() {
+        return ctx;
+      }
+    };
+
+    var quicksort = this.quicksort = (numbers) => {
+      if (numbers.length >= 1) {
+        var pivot = numbers[Math.floor(Math.random()*numbers.length)];
+        var smaller = [], bigger = [], pivots = [];
+        for (let i = 0; i < numbers.length; i++) {
+          if (numbers[i] != pivot) {
+            if (numbers[i] < pivot) {
+              smaller.push(numbers[i]);
+            } else if (numbers[i] > pivot){
+              bigger.push(numbers[i]);
+            } else {smaller.push(numbers[i])}
+          } else {pivots.push(pivot)}
+        }
+        bigger = quicksort(bigger);
+        smaller = quicksort(smaller);
+        numbers = smaller.concat(pivots).concat(bigger);
+      }
+      return numbers;
+    }
+
+    var update = this.update = () => {
+      ctx.beginPath();
+      ctx.fillStyle = options.style.backgroundColor; // background color
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = options.style.uiColor; // UI
+      ctx.strokeStyle = options.style.uiColor;
+      ctx.lineWidth = 1;
+      ctx.moveTo(widthDataOffset, height - heightDataOffset);
+      ctx.lineTo(width - widthDataOffset, height - heightDataOffset);
+      ctx.moveTo(widthDataOffset, heightDataOffset);
+      ctx.lineTo(widthDataOffset + 1, height - heightDataOffset);
+      ctx.stroke();
+      ctx.closePath();
+
+      if (data.series) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = options.style.series.color;
+        ctx.fillStyle = options.style.series.color;
+
+        var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.length;
+
+        var highestValue = quicksort(data.series)[data.series.length - 1];
+        var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+
+        ctx.beginPath();
+        ctx.arc(widthDataOffset + 2, (height - heightDataOffset) - 1, 3, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.closePath();
+        ctx.stroke();
+
+        data.series.forEach((seriesData, i) => {
+          seriesData *= verticalMultiplier;
+          ctx.beginPath();
+          ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
+          ctx.fill();
+          ctx.closePath();
+          ctx.stroke();
+
+          ctx.beginPath();
+          if (i != 0) {
+            ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series[i - 1] * verticalMultiplier);
+          } else {
+            ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
+          }
+          ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
+          ctx.stroke();
+          ctx.closePath();
+        });
+        ctx.lineWidth = 1;
+      }
+    }
+
+    var setData = this.setData = (newData) => {data = newData;update();};
+
+    var render = this.render = () => {
+      document.querySelector(".chart").appendChild(chart);
+      chart.width = 600;
+      chart.height = 300;
+
+      width = chart.getBoundingClientRect().width; // value init
+      height = chart.getBoundingClientRect().height;
+      ctx = chart.getContext("2d");
+
+      update();
+    }
+    return this;
+  }
+
+  var chart = new Chart();
+  chart.render();
+  chart.setData({series: [20, 50, 10, 60]});
+  </script>
+</body>
+</html>
