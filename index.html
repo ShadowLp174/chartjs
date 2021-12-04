@@ -20,7 +20,7 @@
 
     var chart = document.createElement("canvas");
     var ctx;
-    var widthDataOffset = 20;
+    var widthDataOffset = 40;
     var heightDataOffset = 20;
 
     var data = {
@@ -74,18 +74,18 @@
         ctx.strokeStyle = options.style.series.color;
         ctx.fillStyle = options.style.series.color;
 
-        var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.length;
+        var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
 
-        var highestValue = quicksort(data.series)[data.series.length - 1];
+        var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
         var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
 
         ctx.beginPath();
-        ctx.arc(widthDataOffset + 2, (height - heightDataOffset) - 1, 3, 0, 2 * Math.PI, false);
+        ctx.arc(widthDataOffset + 1, (height - heightDataOffset), 3, 0, 2 * Math.PI, false);
         ctx.fill();
         ctx.closePath();
         ctx.stroke();
 
-        data.series.forEach((seriesData, i) => {
+        data.series.data.forEach((seriesData, i) => {
           seriesData *= verticalMultiplier;
           ctx.beginPath();
           ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
@@ -95,7 +95,7 @@
 
           ctx.beginPath();
           if (i != 0) {
-            ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series[i - 1] * verticalMultiplier);
+            ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
           } else {
             ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
           }
@@ -103,7 +103,19 @@
           ctx.stroke();
           ctx.closePath();
         });
-        ctx.lineWidth = 1;
+
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = options.style.uiColor;
+        ctx.beginPath();
+        ctx.moveTo(widthDataOffset - 5, (height - heightDataOffset) - highestValue*verticalMultiplier);
+        ctx.lineTo(widthDataOffset + 5, (height - heightDataOffset) - highestValue*verticalMultiplier);
+        ctx.stroke();
+        ctx.closePath();
+
+        ctx.beginPath();
+        ctx.direction = "rlt";
+        ctx.fillText(highestValue, 8, (height - heightDataOffset) + 3 - highestValue*verticalMultiplier);
+        ctx.closePath();
       }
     }
 
@@ -125,7 +137,11 @@
 
   var chart = new Chart();
   chart.render();
-  chart.setData({series: [20, 50, 10, 60]});
+  chart.setData({
+    series: {
+      data: [20, 50, 10, 60, 200]
+    }
+  });
   </script>
 </body>
 </html>
