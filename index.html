@@ -21,7 +21,7 @@
     var chart = document.createElement("canvas");
     var ctx;
     var widthDataOffset = 40;
-    var heightDataOffset = 20;
+    var heightDataOffset = 30;
 
     var data = {
       /*series: {},
@@ -83,6 +83,7 @@
     }
 
     var update = this.update = () => {
+      ctx.lineJoin = "round";
       ctx.save();
       ctx.beginPath();
       ctx.fillStyle = options.style.backgroundColor; // background color
@@ -105,9 +106,10 @@
         if (data.series.name) {
           ctx.save();
           ctx.beginPath();
-          ctx.translate(0, 15);
+          ctx.translate(0, 20);
 
           ctx.fillStyle = options.style.series.color;
+          ctx.font = "normal 16px normal";
           let x = (widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) >= 2) ? widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) : 2;
           ctx.fillText(data.series.name, x, 0);
 
@@ -187,7 +189,7 @@
   chart.render();
   chart.setData({
     series: {
-      name: "Data",
+      name: "Data in Units",
       data: [20, 50, 10, 60, 200]
     },
     xAxis: {
