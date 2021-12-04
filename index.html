@@ -24,8 +24,8 @@
     var heightDataOffset = 20;
 
     var data = {
-      /*series: [],
-      xAxis: []*/
+      /*series: {},
+      xAxis: {}*/
     };
 
     this.properties = {
@@ -54,7 +54,36 @@
       return numbers;
     }
 
+    var xAxis = this.xAxis = () => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.translate(widthDataOffset + 1, (height - heightDataOffset) - 5);
+
+      ctx.strokeStyle = options.style.uiColor;
+      ctx.fillStyle = options.style.uiColor;
+      ctx.lineWidth = 1;
+      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, 10);
+      ctx.stroke();
+      data.xAxis.data.forEach((point, i) => {
+        ctx.moveTo(((i + 1)*horizontalSpace), 0);
+        ctx.lineTo(((i + 1)*horizontalSpace), 10);
+        ctx.stroke();
+
+        ctx.fillText(point, (i + 1) * horizontalSpace - (ctx.measureText(point).width / 2), 20);
+      });
+      if (data.xAxis.start) {
+        ctx.moveTo(0, 0);
+        ctx.fillText(data.xAxis.start, (ctx.measureText(data.xAxis.start).width / 2 * (-1)), 20);
+      }
+      ctx.closePath();
+      ctx.restore();
+    }
+
     var update = this.update = () => {
+      ctx.save();
       ctx.beginPath();
       ctx.fillStyle = options.style.backgroundColor; // background color
       ctx.fillRect(0, 0, width, height);
@@ -68,8 +97,25 @@
       ctx.lineTo(widthDataOffset + 1, height - heightDataOffset);
       ctx.stroke();
       ctx.closePath();
+      ctx.restore();
 
       if (data.series) {
+        xAxis();
+
+        if (data.series.name) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.translate(0, 15);
+
+          ctx.fillStyle = options.style.series.color;
+          let x = (widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) >= 2) ? widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) : 2;
+          ctx.fillText(data.series.name, x, 0);
+
+          ctx.closePath();
+          ctx.restore();
+        }
+
+        ctx.save();
         ctx.lineWidth = 2;
         ctx.strokeStyle = options.style.series.color;
         ctx.fillStyle = options.style.series.color;
@@ -114,8 +160,10 @@
 
         ctx.beginPath();
         ctx.direction = "rlt";
-        ctx.fillText(highestValue, 8, (height - heightDataOffset) + 3 - highestValue*verticalMultiplier);
+        ctx.fillText(highestValue, (widthDataOffset - ctx.measureText(highestValue.toString()).width) / 2, (height - heightDataOffset) + 3 - highestValue*verticalMultiplier);
         ctx.closePath();
+
+        ctx.restore();
       }
     }
 
@@ -139,7 +187,14 @@
   chart.render();
   chart.setData({
     series: {
+      name: "Data",
       data: [20, 50, 10, 60, 200]
+    },
+    xAxis: {
+      start: "No Data",
+      data: [
+        "test1", "test2", "test3", "test4", "test5"
+      ]
     }
   });
   </script>
