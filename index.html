@@ -13,7 +13,8 @@
         backgroundColor: "#282c34",
         uiColor: "#9da5b4",
         series: {
-          color: "#f45b5b"
+          color: "#f45b5b",
+          semiTransparent: "rgba(244, 91, 91, 1)"
         }
       }
     }
@@ -22,6 +23,8 @@
     var ctx;
     var widthDataOffset = 40;
     var heightDataOffset = 30;
+
+    var xAxisPoints = [];
 
     var data = {
       /*series: {},
@@ -54,6 +57,81 @@
       return numbers;
     }
 
+    var getMousePos = this.getMousePos = (evt) => {
+      var rect = chart.getBoundingClientRect(), // abs. size of element
+          scaleX = chart.width / chart.width,    // relationship bitmap vs. element for X
+          scaleY = chart.height / rect.height;  // relationship bitmap vs. element for Y
+
+      return {
+        x: (evt.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
+        y: (evt.clientY - rect.top) * scaleY     // been adjusted to be relative to element
+      }
+    }
+
+    var getClosestPoint = this.getClosestPoint = (x, y) => {
+      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+      var distances = [];
+      data.series.data.forEach((point, i) => {
+        var a = x - widthDataOffset + 1 + ((i + 1) * horizontalSpace);
+        var b = y - height - ((height - heightDataOffset) - point * verticalMultiplier);
+        distances.push([Math.sqrt(a*a + b*b), i]);
+      });
+
+      function sortDistances(numbers) {
+        if (numbers.length >= 1) {
+          var pivot = numbers[Math.floor(Math.random()*numbers.length)];
+          var smaller = [], bigger = [], pivots = [];
+          for (let i = 0; i < numbers.length; i++) {
+            if (numbers[i][0] != pivot[0]) {
+              if (numbers[i][0] < pivot[0]) {
+                smaller.push(numbers[i]);
+              } else if (numbers[i][0] > pivot[0]){
+                bigger.push(numbers[i]);
+              } else {smaller.push(numbers[i])}
+            } else {pivots.push(pivot)}
+          }
+          bigger = quicksort(bigger);
+          smaller = quicksort(smaller);
+          numbers = smaller.concat(pivots).concat(bigger);
+        }
+        return numbers;
+      }
+
+      distances = sortDistances(distances);
+      console.log(distances);//.map((dst) => dst[0]));
+      return distances[0][1];
+    }
+
+    var handleHover = this.handleHover = (x, y) => {
+      if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+        var point = getClosestPoint(x, y);
+        update(point);
+
+        ctx.save();
+        ctx.beginPath();
+
+        ctx.strokeStyle = options.style.uiColor;
+        ctx.moveTo(widthDataOffset, y);
+        ctx.lineTo(x, y);
+
+        ctx.moveTo(x, height - heightDataOffset);
+        ctx.lineTo(x, y);
+
+        ctx.stroke();
+
+        ctx.closePath();
+        ctx.restore();
+      } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+        update();
+      }
+    }
+
+    var handleScroll = this.handleScroll = (event) => {
+
+    }
+
     var xAxis = this.xAxis = () => {
       ctx.save();
       ctx.beginPath();
@@ -82,7 +160,30 @@
       ctx.restore();
     }
 
-    var update = this.update = () => {
+    var yAxis = this.yAxis = () => {
+      ctx.save();
+      ctx.beginPath();
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = options.style.uiColor;
+
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+
+      ctx.moveTo(widthDataOffset - 5, (height - heightDataOffset) - highestValue*verticalMultiplier);
+      ctx.lineTo(widthDataOffset + 5, (height - heightDataOffset) - highestValue*verticalMultiplier);
+      ctx.stroke();
+      ctx.closePath();
+
+      ctx.beginPath();
+      ctx.direction = "rlt";
+      ctx.fillStyle = options.style.uiColor;
+      ctx.fillText(highestValue, (widthDataOffset - ctx.measureText(highestValue.toString()).width) / 2, (height - heightDataOffset) + 3 - highestValue*verticalMultiplier);
+      ctx.closePath();
+      ctx.restore();
+    }
+
+    var update = this.update = (highlighted) => {
       ctx.lineJoin = "round";
       ctx.save();
       ctx.beginPath();
@@ -102,6 +203,7 @@
 
       if (data.series) {
         xAxis();
+        yAxis();
 
         if (data.series.name) {
           ctx.save();
@@ -109,7 +211,7 @@
           ctx.translate(0, 20);
 
           ctx.fillStyle = options.style.series.color;
-          ctx.font = "normal 16px normal";
+          ctx.font = "normal 16px Calibri";
           let x = (widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) >= 2) ? widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) : 2;
           ctx.fillText(data.series.name, x, 0);
 
@@ -150,31 +252,49 @@
           ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
           ctx.stroke();
           ctx.closePath();
+
+          if (highlighted == i) {
+            ctx.beginPath();
+            ctx.fillStyle = options.style.series.semiTransparent;
+            ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 4, 0, 2 * Math.PI, false);
+            ctx.fill();
+
+            //ctx.fillStyle = options.style.uiColor;
+            //ctx.fillText(data.series.data[i], widthDataOffset + 10 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData + 3);
+            ctx.closePath();
+            ctx.stroke();
+          }
         });
-
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = options.style.uiColor;
-        ctx.beginPath();
-        ctx.moveTo(widthDataOffset - 5, (height - heightDataOffset) - highestValue*verticalMultiplier);
-        ctx.lineTo(widthDataOffset + 5, (height - heightDataOffset) - highestValue*verticalMultiplier);
-        ctx.stroke();
-        ctx.closePath();
-
-        ctx.beginPath();
-        ctx.direction = "rlt";
-        ctx.fillText(highestValue, (widthDataOffset - ctx.measureText(highestValue.toString()).width) / 2, (height - heightDataOffset) + 3 - highestValue*verticalMultiplier);
-        ctx.closePath();
-
         ctx.restore();
       }
     }
 
-    var setData = this.setData = (newData) => {data = newData;update();};
+    var setData = this.setData = (newData) => {
+      data = newData;
+
+      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+
+      data.xAxis.data.forEach((point, i) => {
+        xAxisPoints.push(widthDataOffset + (i + 1) * horizontalSpace);
+      });
+
+      update();
+    };
 
     var render = this.render = () => {
       document.querySelector(".chart").appendChild(chart);
       chart.width = 600;
       chart.height = 300;
+      chart.addEventListener("mousemove", function(event) {
+        var mousepos = getMousePos(event);
+        handleHover(mousepos.x, mousepos.y);
+      });
+      chart.addEventListener("mouseout", function(event) {
+        update();
+      });
+      chart.addEventListener("mousewheel", function(event) {
+        handleScroll(event);
+      });
 
       width = chart.getBoundingClientRect().width; // value init
       height = chart.getBoundingClientRect().height;
