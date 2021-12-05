@@ -20,6 +20,8 @@
     }
 
     var chart = document.createElement("canvas");
+    var tooltip = document.createElement("div");
+
     var ctx;
     var widthDataOffset = 40;
     var heightDataOffset = 30;
@@ -74,8 +76,8 @@
       var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
       var distances = [];
       data.series.data.forEach((point, i) => {
-        var a = x - widthDataOffset + 1 + ((i + 1) * horizontalSpace);
-        var b = y - height - ((height - heightDataOffset) - point * verticalMultiplier);
+        var a = widthDataOffset + 1 + ((i + 1) * horizontalSpace) - x;
+        var b = ((height - heightDataOffset) - point * verticalMultiplier) - y;
         distances.push([Math.sqrt(a*a + b*b), i]);
       });
 
@@ -162,7 +164,6 @@
 
     var yAxis = this.yAxis = () => {
       ctx.save();
-      ctx.beginPath();
 
       ctx.lineWidth = 2;
       ctx.strokeStyle = options.style.uiColor;
@@ -170,16 +171,21 @@
       var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
       var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
 
-      ctx.moveTo(widthDataOffset - 5, (height - heightDataOffset) - highestValue*verticalMultiplier);
-      ctx.lineTo(widthDataOffset + 5, (height - heightDataOffset) - highestValue*verticalMultiplier);
-      ctx.stroke();
-      ctx.closePath();
+      var scaleSteps = 8;
+      for (let i = 1; i <= scaleSteps; i++) {
+        ctx.beginPath();
+        let value = highestValue / scaleSteps * i;
+        ctx.moveTo(widthDataOffset - 5, (height - heightDataOffset) - value*verticalMultiplier);
+        ctx.lineTo(widthDataOffset + 5, (height - heightDataOffset) - value*verticalMultiplier);
+        ctx.stroke();
+        ctx.closePath();
 
-      ctx.beginPath();
-      ctx.direction = "rlt";
-      ctx.fillStyle = options.style.uiColor;
-      ctx.fillText(highestValue, (widthDataOffset - ctx.measureText(highestValue.toString()).width) / 2, (height - heightDataOffset) + 3 - highestValue*verticalMultiplier);
-      ctx.closePath();
+        ctx.beginPath();
+        ctx.direction = "rlt";
+        ctx.fillStyle = options.style.uiColor;
+        ctx.fillText(value, (widthDataOffset - ctx.measureText(value.toString()).width) / 2, (height - heightDataOffset) + 3 - value*verticalMultiplier);
+        ctx.closePath();
+      }
       ctx.restore();
     }
 
