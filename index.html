@@ -6,6 +6,9 @@
   <div class="chart"></div>
 
   <script>
+  function formatter() {
+    return this;
+  }
   function Chart() {
     var width = 0; var height = 0;
     var options = {
@@ -15,6 +18,10 @@
         series: {
           color: "#f45b5b",
           semiTransparent: "rgba(244, 91, 91, 1)"
+        },
+        tooltip: {
+          background: ["#14161a", "#21252b"],
+          color: "#9da5b4"
         }
       },
       barWidth: 20
@@ -58,6 +65,37 @@
         numbers = smaller.concat(pivots).concat(bigger);
       }
       return numbers;
+    }
+
+    var drawTooltip = this.drawTooltip = (x, y, text) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = options.style.tooltip.background[0];
+
+      var boxWidth = ctx.measureText(text).width + 10;
+      let metrics = ctx.measureText(text);
+      let actualTextHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      var boxHeight = actualTextHeight + 10;
+
+      ctx.beginPath();
+
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 10, y + boxHeight / 2);
+      ctx.lineTo(x, y + boxHeight);
+      ctx.lineTo(x, y);
+      ctx.fill();
+
+      ctx.closePath();
+
+      ctx.fillRect(x, y, boxWidth, boxHeight);
+      ctx.closePath();
+
+      ctx.beginPath();
+      ctx.fillStyle = options.style.tooltip.color;
+      ctx.fillText(text, x + 5, y + 15);
+
+      ctx.closePath();
+      ctx.restore();
     }
 
     var getMousePos = this.getMousePos = (evt) => {
@@ -108,26 +146,60 @@
     }
 
     var handleHover = this.handleHover = (x, y) => {
-      if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
-        var point = getClosestPoint(x, y);
-        update(point);
+      if (data.series.type == "spline") {
+        if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+          var point = getClosestPoint(x, y);
+          update(point);
 
-        ctx.save();
-        ctx.beginPath();
+          ctx.save();
+          ctx.beginPath();
 
-        ctx.strokeStyle = options.style.uiColor;
-        ctx.moveTo(widthDataOffset, y);
-        ctx.lineTo(x, y);
+          ctx.strokeStyle = options.style.uiColor;
+          ctx.moveTo(widthDataOffset, y);
+          ctx.lineTo(x, y);
 
-        ctx.moveTo(x, height - heightDataOffset);
-        ctx.lineTo(x, y);
+          ctx.moveTo(x, height - heightDataOffset);
+          ctx.lineTo(x, y);
 
-        ctx.stroke();
+          ctx.stroke();
 
-        ctx.closePath();
-        ctx.restore();
-      } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
-        update();
+          ctx.fillStyle = options.style.uiColor;
+          ctx.font = "normal 15px normal";
+
+          var horizontalSpace = ((width - (widthDataOffset * 2)) / data.series.data.length);
+          var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+          var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+          //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
+          ctx.stroke();
+
+          drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
+
+          ctx.closePath();
+          ctx.restore();
+        } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+          update();
+        }
+      } else if (data.series.type == "bar") {
+        if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+          var point = getClosestPoint(x, y);
+          update(point);
+
+          ctx.save();
+          ctx.beginPath();
+
+          ctx.strokeStyle = options.style.uiColor;
+          ctx.moveTo(widthDataOffset, y);
+          ctx.lineTo(x, y);
+
+          ctx.moveTo(x, height - heightDataOffset);
+          ctx.lineTo(x, y);
+
+          ctx.stroke();
+          ctx.closePath();
+          ctx.restore();
+        } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+          update();
+        }
       }
     }
 
@@ -350,7 +422,12 @@
     series: {
       name: "Corona Waves",
       type: "spline",
-      data: [30, 0, 20, 5, 10, 0, 100],
+      data: [30, 1, 20, 5, 10, 1, 100],
+      style: {
+        label: {
+          format: "%value%: Inzidenz/100k E."
+        }
+      },
       options: {
         displayKnots: true
       }
