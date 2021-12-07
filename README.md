@@ -8,3 +8,5 @@ A Pure JavaScript Library to display charts using only a few lines of code.
 Documentation will be added in the Future!
 
 Currently, the library is located in the <script> element of the index.html file.
+
+You can see a live demo on [the pages site](https://shadowlp174.github.io/chartjs).
