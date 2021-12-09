@@ -442,10 +442,10 @@
       update();
     };
 
-    var render = this.render = () => {
+    var render = this.render = (opts) => {
       document.querySelector(".chart").appendChild(chart);
-      chart.width = 600;
-      chart.height = 300;
+      chart.width = (!opts) ? 600 : opts.width;
+      chart.height = (!opts) ? 300 : opts.height;
       chart.addEventListener("mousemove", function(event) {
         var mousepos = getMousePos(event);
         handleHover(mousepos.x, mousepos.y);
@@ -494,6 +494,7 @@
       drawRays: false
     }
   }); // TODO: TELETYPE DISCORD RICH PRESENCE
+  // TODO: responsive height, width
   </script>
 </body>
 </html>
