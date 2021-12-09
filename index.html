@@ -9,6 +9,18 @@
   function formatter() {
     return this;
   }
+  function OptionHandler(opts) {
+    var currentOptions = opts;
+    var update = this.update = (updated) => {
+      if (typeof updated == "object") {
+        for (const prop in updated) {
+          currentOptions[prop] = updated[prop];
+        }
+      }
+      return currentOptions
+    }
+    return this;
+  }
   function Chart() {
     var width = 0; var height = 0;
     var options = {
@@ -24,7 +36,12 @@
           color: "#9da5b4"
         }
       },
-      barWidth: 20
+      crossHair: {
+        enabled: true,
+        dot: false
+      },
+      barWidth: 20,
+      drawRays: false
     }
 
     var chart = document.createElement("canvas");
@@ -110,12 +127,12 @@
     }
 
     var getClosestPoint = this.getClosestPoint = (x, y) => {
-      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+      var horizontalSpace = (width - widthDataOffset * 2) / data.series.data.length;
       var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
       var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
       var distances = [];
       data.series.data.forEach((point, i) => {
-        var a = widthDataOffset + 1 + ((i + 1) * horizontalSpace) - x;
+        var a = (widthDataOffset + 1 + ((i + 1) * horizontalSpace)) - x;
         var b = ((height - heightDataOffset) - point * verticalMultiplier) - y;
         distances.push([Math.sqrt(a*a + b*b), i]);
       });
@@ -133,16 +150,31 @@
               } else {smaller.push(numbers[i])}
             } else {pivots.push(pivot)}
           }
-          bigger = quicksort(bigger);
-          smaller = quicksort(smaller);
+          bigger = sortDistances(bigger);
+          smaller = sortDistances(smaller);
           numbers = smaller.concat(pivots).concat(bigger);
         }
         return numbers;
       }
 
       distances = sortDistances(distances);
-      //console.log(distances);//.map((dst) => dst[0]));
       return distances[0][1];
+    }
+
+    var drawRays = this.drawRays = (x, y) => {
+      ctx.save();
+      var horizontalSpace = (width - widthDataOffset * 2) / data.series.data.length;
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+      data.series.data.forEach((point, i) => {
+        ctx.beginPath();
+        ctx.strokeStyle = "green";
+        ctx.moveTo(x, y);
+        ctx.lineTo((widthDataOffset + 1 + ((i + 1) * horizontalSpace)), ((height - heightDataOffset) - point * verticalMultiplier));
+        ctx.stroke();
+        ctx.closePath();
+      });
+      ctx.restore();
     }
 
     var handleHover = this.handleHover = (x, y) => {
@@ -151,18 +183,24 @@
           var point = getClosestPoint(x, y);
           update(point);
 
+          if (options.drawRays) drawRays(x, y);
+
           ctx.save();
+          if (options.crossHair.enabled === true) {
+            ctx.beginPath();
+            ctx.strokeStyle = options.style.uiColor;
+
+            ctx.moveTo(widthDataOffset, y);
+            ctx.lineTo(x, y);
+
+            ctx.moveTo(x, height - heightDataOffset);
+            ctx.lineTo(x, y);
+
+            ctx.stroke();
+            ctx.closePath();
+          }
+
           ctx.beginPath();
-
-          ctx.strokeStyle = options.style.uiColor;
-          ctx.moveTo(widthDataOffset, y);
-          ctx.lineTo(x, y);
-
-          ctx.moveTo(x, height - heightDataOffset);
-          ctx.lineTo(x, y);
-
-          ctx.stroke();
-
           ctx.fillStyle = options.style.uiColor;
           ctx.font = "normal 15px normal";
 
@@ -175,6 +213,14 @@
           drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
 
           ctx.closePath();
+
+          if (options.crossHair.dot === true) {
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.closePath();
+          }
+
           ctx.restore();
         } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
           update();
@@ -281,6 +327,8 @@
         ctx.stroke();
       }
 
+      ctx.beginPath();
+      ctx.lineJoin = "round";
       data.series.data.forEach((seriesData, i) => {
         seriesData *= verticalMultiplier;
         if (data.series.options.displayKnots) {
@@ -291,7 +339,6 @@
           ctx.stroke();
         }
 
-        ctx.beginPath();
         if (i != 0) {
           ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
         } else {
@@ -299,20 +346,18 @@
         }
         ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
         ctx.stroke();
-        ctx.closePath();
-
-        if (highlighted == i && data.series.options.displayKnots) {
-          ctx.beginPath();
-          ctx.fillStyle = options.style.series.semiTransparent;
-          ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 4, 0, 2 * Math.PI, false);
-          ctx.fill();
-
-          //ctx.fillStyle = options.style.uiColor;
-          //ctx.fillText(data.series.data[i], widthDataOffset + 10 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData + 3);
-          ctx.closePath();
-          ctx.stroke();
-        }
       });
+      ctx.closePath();
+
+      if (highlighted && data.series.options.displayKnots) {
+        ctx.beginPath();
+        ctx.fillStyle = options.style.series.semiTransparent;
+        ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * verticalMultiplier, 4, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.stroke();
+        ctx.closePath();
+      }
+
       ctx.restore();
     }
 
@@ -383,6 +428,11 @@
     var setData = this.setData = (newData) => {
       data = newData;
 
+      if (data.options) {
+        var optionHandler = new OptionHandler(options);
+        options = optionHandler.update(data.options);
+      }
+
       var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
 
       data.xAxis.data.forEach((point, i) => {
@@ -416,6 +466,8 @@
     return this;
   }
 
+  var DATA = [1208, 1215, 1215, 1220, 1224, 1229, 1251, 1253, 1268, 1268, 1273, 1279, 1284, 1288, 1290, 1304, 1307, 1309, 1310, 1315, 1322, 1337, 1345, 1354, 1363, 1366, 1380, 1394, 1396, 1397, 1407, 1412, 1419, 1426, 1437, 1447, 1448, 1448, 1448, 1452, 1457, 1457, 1438, 1430, 1422, 1392, 1343, 1285, 1258, 1253, 1175, 1141, 1127, 1092, 1072, 1000, 791, 750, 668, 826, 885, 1003, 1118, 1185, 1321, 1771, 1710, 1688, 1451, 1401, 1302, 1183, 998, 899, 786, 769, 755, 766, 804, 842, 940, 1225, 1274, 1236, 1217, 1133, 1106, 1098, 1171, 1153, 1133, 1111, 1088, 1064, 1021, 961, 892, 856, 949, 1169];
+
   var chart = new Chart();
   chart.render();
   chart.setData({
@@ -437,6 +489,9 @@
       data: [
         "1st wave", "", "2nd wave", "", "3rd wave", "", "4th wave"
       ]
+    },
+    options: {
+      drawRays: false
     }
   }); // TODO: TELETYPE DISCORD RICH PRESENCE
   </script>
