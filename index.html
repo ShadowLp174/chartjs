@@ -43,6 +43,20 @@
       barWidth: 20,
       drawRays: false
     }
+    var envVars = {
+      horizontalSpace: 0,
+      verticalMultiplier: 1,
+      highestValue: 0
+    }
+
+    Object.defineProperties(this, {
+        "env": {
+             "get": function() {
+               return envVars;
+             },
+             "set": function() {}
+        }
+    });
 
     var chart = document.createElement("canvas");
     var tooltip = document.createElement("div");
@@ -52,6 +66,7 @@
     var heightDataOffset = 30;
 
     var xAxisPoints = [];
+    var currentNearestPoint = null;
 
     var data = {
       /*series: {},
@@ -96,20 +111,30 @@
 
       ctx.beginPath();
 
-      ctx.moveTo(x, y);
-      ctx.lineTo(x - 10, y + boxHeight / 2);
-      ctx.lineTo(x, y + boxHeight);
-      ctx.lineTo(x, y);
+      var modifier = 0;
+      var triangleModifier = 0;
+      var factor = 1;
+      if (boxWidth + x > width) {
+        modifier = (boxWidth + 40) * (-1);
+        triangleModifier = modifier + boxWidth;
+        factor = (-1);
+      }
+
+      ctx.moveTo(x + triangleModifier, y);
+      ctx.lineTo(x  + (-10)*factor + triangleModifier, y + boxHeight / 2);
+      ctx.lineTo(x + triangleModifier, y + boxHeight);
+      ctx.lineTo(x + 1*factor + triangleModifier, y + boxHeight);
+      ctx.lineTo(x + 1*factor + triangleModifier, y);
       ctx.fill();
 
       ctx.closePath();
 
-      ctx.fillRect(x, y, boxWidth, boxHeight);
+      ctx.fillRect(x + modifier, y, boxWidth, boxHeight);
       ctx.closePath();
 
       ctx.beginPath();
       ctx.fillStyle = options.style.tooltip.color;
-      ctx.fillText(text, x + 5, y + 15);
+      ctx.fillText(text, x + 5 + modifier, y + 2.5 + actualTextHeight);
 
       ctx.closePath();
       ctx.restore();
@@ -181,7 +206,7 @@
       if (data.series.type == "spline") {
         if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
           var point = getClosestPoint(x, y);
-          update(point);
+          if (currentNearestPoint != point || options.crossHair.enabled || options.drawRays) update(point);
 
           if (options.drawRays) drawRays(x, y);
 
@@ -198,6 +223,13 @@
 
             ctx.stroke();
             ctx.closePath();
+
+            if (options.crossHair.dot === true) {
+              ctx.beginPath();
+              ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
+              ctx.fill();
+              ctx.closePath();
+            }
           }
 
           ctx.beginPath();
@@ -210,17 +242,12 @@
           //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
           ctx.stroke();
 
-          drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
-
-          ctx.closePath();
-
-          if (options.crossHair.dot === true) {
-            ctx.beginPath();
-            ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
-            ctx.fill();
-            ctx.closePath();
+          if (currentNearestPoint != point || options.drawRays || options.crossHair.enabled) {
+            drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
+            currentNearestPoint = point;
           }
 
+          ctx.closePath();
           ctx.restore();
         } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
           update();
@@ -451,6 +478,7 @@
         handleHover(mousepos.x, mousepos.y);
       });
       chart.addEventListener("mouseout", function(event) {
+        currentNearestPoint = null;
         update();
       });
       chart.addEventListener("mousewheel", function(event) {
@@ -491,7 +519,10 @@
       ]
     },
     options: {
-      drawRays: false
+      drawRays: false,
+      crossHair: {
+        enabled: true
+      }
     }
   }); // TODO: TELETYPE DISCORD RICH PRESENCE
   // TODO: responsive height, width
