@@ -1,17 +1,12 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Chart.JS</title>
+  <title>Chart.JS animation tests</title>
 </head>
 <body>
   <h1>Chart.JS</h1>
 
   <div class="chart"></div>
-
-  <div id="info">
-    <p>Checkout the new Chart.JS tests with animations!</p>
-    <a href="animated.html">Animated</a>
-  </div>
 
   <script>
   function formatter() {
@@ -56,7 +51,8 @@
     var envVars = {
       horizontalSpace: 0,
       verticalMultiplier: 1,
-      highestValue: 0
+      highestValue: 0,
+      waypointCount: 10
     }
 
     Object.defineProperties(this, {
@@ -472,6 +468,49 @@
       }
     }
 
+    // calc waypoints traveling along vertices
+    function calcWaypoints(vertices){
+        var waypoints=[];
+        for(var i=1;i<vertices.length;i++){
+            var pt0=vertices[i-1];
+            var pt1=vertices[i];
+            var dx=pt1.x-pt0.x;
+            var dy=pt1.y-pt0.y;
+            for(var j=0;j<envVars.waypointCount;j++){
+                var x=pt0.x+dx*j/envVars.waypointCount;
+                var y=pt0.y+dy*j/envVars.waypointCount;
+                waypoints.push({x:x,y:y});
+            }
+        }
+        return(waypoints);
+    }
+
+    var points;
+    var t = 1;
+    var draw = this.firstDrawing = () => {
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = options.style.series.color;
+      ctx.fillStyle = options.style.series.color;
+      /*ctx.beginPath();
+      var i = Math.floor(t / envVars.waypointCount);
+      ctx.arc(widthDataOffset + 1 + envVars.horizontalSpace * data.series.data[i], (height - heightDataOffset) - data.series.data[i] * envVars.verticalMultiplier, 3, 0, 2 * Math.PI, false);
+      ctx.fill();
+      ctx.closePath();
+      ctx.stroke();*/
+      if(t<points.length-1){ requestAnimationFrame(draw); } else { update(); }
+      // draw a line segment from the last waypoint
+      // to the current waypoint
+      ctx.beginPath();
+      ctx.moveTo(points[t-1].x,points[t-1].y);
+      ctx.lineTo(points[t].x,points[t].y);
+      ctx.stroke();
+      // increment "t" to get the next waypoint
+      ctx.restore();
+      t++;
+    }
+
     var setData = this.setData = (newData) => {
       data = newData;
 
@@ -481,12 +520,71 @@
       }
 
       var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+      envVars.horizontalSpace = horizontalSpace;
 
       data.xAxis.data.forEach((point, i) => {
         xAxisPoints.push(widthDataOffset + (i + 1) * horizontalSpace);
       });
 
-      update();
+      ctx.clearRect(0, 0, width, height);
+
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+
+      envVars.highestValue = highestValue;
+      envVars.verticalMultiplier = verticalMultiplier
+
+      var vertices = [];
+      vertices.push({x:widthDataOffset + 1, y: height - heightDataOffset});
+      data.series.data.forEach((seriesData, i) => {
+        vertices.push({x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier});
+      });
+
+      ctx.lineJoin = "round";
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = options.style.backgroundColor; // background color
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = options.style.uiColor; // UI
+      ctx.strokeStyle = options.style.uiColor;
+      ctx.lineWidth = 1;
+      ctx.moveTo(widthDataOffset, height - heightDataOffset);
+      ctx.lineTo(width - widthDataOffset, height - heightDataOffset);
+      ctx.moveTo(widthDataOffset, heightDataOffset);
+      ctx.lineTo(widthDataOffset + 1, height - heightDataOffset);
+      ctx.stroke();
+      ctx.closePath();
+      ctx.restore();
+
+      if (data.series) {
+        xAxis();
+        yAxis();
+
+        if (data.series.name) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.translate(0, 20);
+
+          ctx.fillStyle = options.style.series.color;
+          ctx.font = "normal 16px Calibri";
+          let x = (widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) >= 2) ? widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) : 2;
+          ctx.fillText(data.series.name, x, 0);
+
+          ctx.closePath();
+          ctx.restore();
+        }
+
+        switch (data.series.type) {
+          case "spline":
+            points = calcWaypoints(vertices);
+            window.requestAnimationFrame(draw);
+            break;
+          case "bar":
+            drawBars(highlighted);
+            break;
+        }
+      }
     };
 
     var render = this.render = (opts) => {
