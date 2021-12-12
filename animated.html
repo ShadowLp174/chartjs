@@ -76,6 +76,12 @@
           "set": function(newOpts) {
             return options = new OptionHandler(options).update(newOpts);
           }
+        },
+        "data": {
+          "get": function() {
+            return data;
+          },
+          "set": function() {console.warn("Please use chart.setData() to set a new dataset.");}
         }
     });
 
@@ -89,10 +95,10 @@
     var xAxisPoints = [];
     var currentNearestPoint = null;
 
-    var data = this.data = {
+    var data = {
       /*series: {},
       xAxis: {}*/
-    };
+    }, originalData = {};
 
     this.properties = {
       get context() {
@@ -572,6 +578,7 @@
       }
 
       if (data.options.dataGrouping.enabled) {
+        originalData = data;
         let grouped = [];
         let groupCount = options.dataGrouping.groupCount;
         for (let i = 0; i < data.series.data.length; i+=groupCount) {
