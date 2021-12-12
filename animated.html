@@ -711,6 +711,7 @@
 
   var chart = new Chart();
   chart.render({height:400, width: 900});
+  chart.env = {waypointCount: 3};
   chart.setData({
     series: {
       name: "Corona Waves",
@@ -741,7 +742,8 @@
         enabled: true
       }
     }
-  }); // TODO: TELETYPE DISCORD RICH PRESENCE
+  });
+  // TODO: TELETYPE DISCORD RICH PRESENCE
   // TODO: responsive height, width
   </script>
 </body>
