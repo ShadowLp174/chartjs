@@ -41,6 +41,10 @@
           color: "#9da5b4"
         }
       },
+      dataGrouping: {
+        enabled: false,
+        groupCount: 10
+      },
       crossHair: {
         enabled: true,
         dot: false
@@ -85,7 +89,7 @@
     var xAxisPoints = [];
     var currentNearestPoint = null;
 
-    var data = {
+    var data = this.data = {
       /*series: {},
       xAxis: {}*/
     };
@@ -567,6 +571,23 @@
         options = optionHandler.update(data.options);
       }
 
+      if (data.options.dataGrouping.enabled) {
+        let grouped = [];
+        let groupCount = options.dataGrouping.groupCount;
+        for (let i = 0; i < data.series.data.length; i+=groupCount) {
+          if (data.series.data[i]) {
+            let tmp = [];
+            for (let j = i; j < i + groupCount; j++) {
+              if (data.series.data[j]) {
+                tmp.push(data.series.data[j]);
+              } else {break;}
+            }
+            grouped.push(tmp.reduce((prev, curr) => prev + curr) / tmp.length);
+          } else {break;}
+        }
+        data.series.data = grouped;
+      }
+
       var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
       envVars.horizontalSpace = horizontalSpace;
 
@@ -582,7 +603,7 @@
       envVars.highestValue = highestValue;
       envVars.verticalMultiplier = verticalMultiplier;
 
-      ctx.lineJoin = "round";
+      ctx.lineJoin = "miter";
       ctx.save();
       ctx.beginPath();
       ctx.fillStyle = options.style.backgroundColor; // background color
@@ -682,28 +703,32 @@
   var DATA = [1208, 1215, 1215, 1220, 1224, 1229, 1251, 1253, 1268, 1268, 1273, 1279, 1284, 1288, 1290, 1304, 1307, 1309, 1310, 1315, 1322, 1337, 1345, 1354, 1363, 1366, 1380, 1394, 1396, 1397, 1407, 1412, 1419, 1426, 1437, 1447, 1448, 1448, 1448, 1452, 1457, 1457, 1438, 1430, 1422, 1392, 1343, 1285, 1258, 1253, 1175, 1141, 1127, 1092, 1072, 1000, 791, 750, 668, 826, 885, 1003, 1118, 1185, 1321, 1771, 1710, 1688, 1451, 1401, 1302, 1183, 998, 899, 786, 769, 755, 766, 804, 842, 940, 1225, 1274, 1236, 1217, 1133, 1106, 1098, 1171, 1153, 1133, 1111, 1088, 1064, 1021, 961, 892, 856, 949, 1169];
 
   var chart = new Chart();
-  chart.render();
+  chart.render({height:400, width: 900});
   chart.setData({
     series: {
       name: "Corona Waves",
       type: "spline",
-      data: [30, 1, 20, 5, 10, 1, 100],
+      data: DATA, // [30, 1, 20, 5, 10, 1, 100]
       style: {
         label: {
           format: "%value% unit(s)"
         }
       },
       options: {
-        displayKnots: true
+        displayKnots: false
       }
     },
     xAxis: {
       start: "No Data",
       data: [
-        "1st wave", "", "2nd wave", "", "3rd wave", "", "4th wave"
+        //"1st wave", "", "2nd wave", "", "3rd wave", "", "4th wave"
       ]
     },
     options: {
+      dataGrouping: {
+        enabled: true,
+        groupCount: 2
+      },
       drawRays: false,
       crossHair: {
         enabled: true
