@@ -52,7 +52,8 @@
       horizontalSpace: 0,
       verticalMultiplier: 1,
       highestValue: 0,
-      waypointCount: 10
+      waypointCount: 10,
+      waypointArrayLength: 0
     }
 
     Object.defineProperties(this, {
@@ -414,7 +415,6 @@
 
       data.series.data.forEach((seriesData, i) => {
         ctx.beginPath();
-        console.log(seriesData);
         ctx.fillRect(widthDataOffset + 1 + (i + 1) * horizontalSpace - (options.barWidth / 2), height - heightDataOffset - seriesData * verticalMultiplier - 1, options.barWidth, seriesData * verticalMultiplier);
         ctx.closePath();
       });
@@ -470,24 +470,43 @@
 
     // calc waypoints traveling along vertices
     function calcWaypoints(vertices){
-        var waypoints=[];
-        for(var i=1;i<vertices.length;i++){
-            var pt0=vertices[i-1];
-            var pt1=vertices[i];
-            var dx=pt1.x-pt0.x;
-            var dy=pt1.y-pt0.y;
-            for(var j=0;j<envVars.waypointCount;j++){
-                var x=pt0.x+dx*j/envVars.waypointCount;
-                var y=pt0.y+dy*j/envVars.waypointCount;
-                waypoints.push({x:x,y:y});
-            }
+      var waypoints=[];
+      for(var i=1;i<vertices.length;i++){
+        var pt0=vertices[i-1];
+        var pt1=vertices[i];
+        var dx=pt1.x-pt0.x;
+        var dy=pt1.y-pt0.y;
+        for(var j=0;j<envVars.waypointCount;j++){
+          var x=pt0.x+dx*j/envVars.waypointCount;
+          var y=pt0.y+dy*j/envVars.waypointCount;
+          waypoints.push({x:x,y:y});
         }
-        return(waypoints);
+      }
+      return(waypoints);
+    }
+
+    function calcLinearWaypoints(barVertices, factor) {
+      var waypoints = [];
+      for (let index = 0; index < barVertices.length; index++) {
+        let vertices = barVertices[index];
+        var pt0 = vertices[0];
+        var pt1 = vertices[1];
+        var dx = pt1.x - pt1.x;
+        var dy = pt1.y - pt0.y;
+        for (let i = 0; i < envVars.waypointCount; i++) {
+          // f(x)=-0.75x
+          var val = (-0.75) * i;
+          var x=pt0.x+dx*val/(envVars.waypointCount);
+          var y=pt0.y+dy*val/(envVars.waypointCount);
+          waypoints.push({x:x,y:y});
+        }
+      }
+      return waypoints;
     }
 
     var points;
-    var t = 1;
-    var draw = this.firstDrawing = () => {
+    var t = 1, loopCount = 1, currentBar = 0;
+    var drawAnimatedSpline = this.animatedSpline = () => {
       ctx.save();
       ctx.lineJoin = "round";
       ctx.lineWidth = 2;
@@ -499,16 +518,45 @@
       ctx.fill();
       ctx.closePath();
       ctx.stroke();*/
-      if(t<points.length-1){ requestAnimationFrame(draw); } else { update(); }
-      // draw a line segment from the last waypoint
-      // to the current waypoint
+      if(t<points.length-1){ requestAnimationFrame(drawAnimatedSpline); } else { t = 1; update(); }
+
       ctx.beginPath();
-      ctx.moveTo(points[t-1].x,points[t-1].y);
-      ctx.lineTo(points[t].x,points[t].y);
+      ctx.moveTo(points[t-1].x,points[t-1].y); // draw a line segment from the last waypoint
+      ctx.lineTo(points[t].x,points[t].y); // to the current waypoint
       ctx.stroke();
-      // increment "t" to get the next waypoint
       ctx.restore();
       t++;
+    }
+    var drawAnimatedBars = this.animatedBars = () => {
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = options.style.series.color;
+      ctx.fillStyle = options.style.series.color;
+
+      if(t<points[0].length-1){
+        requestAnimationFrame(drawAnimatedBars);
+      } else if (currentBar>=points.length - 1) {
+        t = 1;
+        currentBar = 0;
+        update();
+      } else if (currentBar<points.length - 1){
+        requestAnimationFrame(drawAnimatedBars);
+      }
+
+      var y1 = points[currentBar][t - 1].y;
+      var y2 = (-1) * Math.abs(points[currentBar][t].y - y1);
+      ctx.beginPath();
+      console.log(points[currentBar][t].x, y1, y2);
+      ctx.fillRect(points[currentBar][t].x - options.barWidth / 2, y1, options.barWidth, y2);
+      ctx.stroke();
+      if (!points[currentBar][t + 1]) {
+        t = 1;
+        currentBar++;
+      }
+      ctx.restore();
+      t++;
+      loopCount++;
     }
 
     var setData = this.setData = (newData) => {
@@ -532,13 +580,7 @@
       var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
 
       envVars.highestValue = highestValue;
-      envVars.verticalMultiplier = verticalMultiplier
-
-      var vertices = [];
-      vertices.push({x:widthDataOffset + 1, y: height - heightDataOffset});
-      data.series.data.forEach((seriesData, i) => {
-        vertices.push({x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier});
-      });
+      envVars.verticalMultiplier = verticalMultiplier;
 
       ctx.lineJoin = "round";
       ctx.save();
@@ -577,11 +619,36 @@
 
         switch (data.series.type) {
           case "spline":
+            var vertices = [];
+            vertices.push({x:widthDataOffset + 1, y: height - heightDataOffset});
+            data.series.data.forEach((seriesData, i) => {
+              vertices.push({x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier});
+            });
             points = calcWaypoints(vertices);
-            window.requestAnimationFrame(draw);
+            window.requestAnimationFrame(drawAnimatedSpline);
             break;
           case "bar":
-            drawBars(highlighted);
+            var vertices = [];
+            data.series.data.forEach((seriesData, i) => {
+              let start = {x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset)};
+              let end = {x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier};
+              vertices.push([start, end]);
+            });
+            points = calcLinearWaypoints(vertices);
+            envVars.waypointArrayLength = points.length;
+            barWaypoints = [];
+            var lastX = 0;
+            var currentIndex = -1;
+            points.forEach((point, i) => {
+              if (point.x != lastX) {
+                lastX = point.x;
+                barWaypoints[++currentIndex] = [point];
+              } else {
+                barWaypoints[currentIndex].push(point);
+              }
+            });
+            points = barWaypoints;
+            window.requestAnimationFrame(drawAnimatedBars);
             break;
         }
       }
