@@ -8,6 +8,8 @@
 
   <div class="chart"></div>
 
+  <p>Please note that the data is completely fictional and has nothing to do with the Corona pandemic
+
   <script>
   function formatter() {
     return this;
@@ -308,6 +310,7 @@
     }
 
     var xAxis = this.xAxis = () => {
+      if (!data.xAxis.pointInterval) data.xAxis.pointInterval = 1;
       ctx.save();
       ctx.beginPath();
       ctx.translate(widthDataOffset + 1, (height - heightDataOffset) - 5);
@@ -321,11 +324,11 @@
       ctx.lineTo(0, 10);
       ctx.stroke();
       data.xAxis.data.forEach((point, i) => {
-        ctx.moveTo(((i + 1)*horizontalSpace), 0);
-        ctx.lineTo(((i + 1)*horizontalSpace), 10);
+        ctx.moveTo(((i + 1)*data.xAxis.pointInterval*horizontalSpace), 0);
+        ctx.lineTo(((i + 1)*data.xAxis.pointInterval*horizontalSpace), 10);
         ctx.stroke();
 
-        ctx.fillText(point, (i + 1) * horizontalSpace - (ctx.measureText(point).width / 2), 20);
+        ctx.fillText(point, (i + 1) * data.xAxis.pointInterval * horizontalSpace - (ctx.measureText(point).width / 2), 20);
       });
       if (data.xAxis.start) {
         ctx.moveTo(0, 0);
@@ -728,8 +731,9 @@
     },
     xAxis: {
       start: "No Data",
+      pointInterval: 10,
       data: [
-        //"1st wave", "", "2nd wave", "", "3rd wave", "", "4th wave"
+        "1st wave", "", "2nd wave", "", "3rd wave"
       ]
     },
     options: {
