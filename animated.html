@@ -541,12 +541,6 @@
       t++;
     }
     var drawAnimatedBars = this.animatedBars = () => {
-      ctx.save();
-      ctx.lineJoin = "round";
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = options.style.series.color;
-      ctx.fillStyle = options.style.series.color;
-
       if(t<points[0].length-1){
         requestAnimationFrame(drawAnimatedBars);
       } else if (currentBar>=points.length - 1) {
@@ -557,12 +551,17 @@
         requestAnimationFrame(drawAnimatedBars);
       }
 
+      var x = points[currentBar][t].x - options.barWidth / 2;
       var y1 = points[currentBar][t - 1].y;
       var y2 = (-1) * Math.abs(points[currentBar][t].y - y1);
+      ctx.save();
       ctx.beginPath();
-      console.log(points[currentBar][t].x, y1, y2);
-      ctx.fillRect(points[currentBar][t].x - options.barWidth / 2, y1, options.barWidth, y2);
-      ctx.stroke();
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = options.style.series.color;
+      ctx.fillStyle = options.style.series.color;
+      console.log(`ctx.fillRect(${x}, ${y1}, ${options.barWidth}, ${y2})`);
+      ctx.fillRect(x, y1 - data.series.data[currentBar] * envVars.verticalMultiplier, options.barWidth, y2);
       if (!points[currentBar][t + 1]) {
         t = 1;
         currentBar++;
@@ -648,39 +647,43 @@
           ctx.restore();
         }
 
-        switch (data.series.type) {
-          case "spline":
-            var vertices = [];
-            vertices.push({x:widthDataOffset + 1, y: height - heightDataOffset});
-            data.series.data.forEach((seriesData, i) => {
-              vertices.push({x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier});
-            });
-            points = calcWaypoints(vertices);
-            window.requestAnimationFrame(drawAnimatedSpline);
-            break;
-          case "bar":
-            var vertices = [];
-            data.series.data.forEach((seriesData, i) => {
-              let start = {x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset)};
-              let end = {x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier};
-              vertices.push([start, end]);
-            });
-            points = calcLinearWaypoints(vertices);
-            envVars.waypointArrayLength = points.length;
-            barWaypoints = [];
-            var lastX = 0;
-            var currentIndex = -1;
-            points.forEach((point, i) => {
-              if (point.x != lastX) {
-                lastX = point.x;
-                barWaypoints[++currentIndex] = [point];
-              } else {
-                barWaypoints[currentIndex].push(point);
-              }
-            });
-            points = barWaypoints;
-            window.requestAnimationFrame(drawAnimatedBars);
-            break;
+        if (!data.options.animations.enabled) {
+          update();
+        } else {
+          switch (data.series.type) {
+            case "spline":
+              var vertices = [];
+              vertices.push({x:widthDataOffset + 1, y: height - heightDataOffset});
+              data.series.data.forEach((seriesData, i) => {
+                vertices.push({x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier});
+              });
+              points = calcWaypoints(vertices);
+              window.requestAnimationFrame(drawAnimatedSpline);
+              break;
+            case "bar":
+              var vertices = [];
+              data.series.data.forEach((seriesData, i) => {
+                let start = {x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset)};
+                let end = {x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier};
+                vertices.push([start, end]);
+              });
+              points = calcLinearWaypoints(vertices);
+              envVars.waypointArrayLength = points.length;
+              barWaypoints = [];
+              var lastX = 0;
+              var currentIndex = -1;
+              points.forEach((point, i) => {
+                if (point.x != lastX) {
+                  lastX = point.x;
+                  barWaypoints[++currentIndex] = [point];
+                } else {
+                  barWaypoints[currentIndex].push(point);
+                }
+              });
+              points = barWaypoints;
+              window.requestAnimationFrame(drawAnimatedBars);
+              break;
+          }
         }
       }
     };
@@ -714,12 +717,12 @@
 
   var chart = new Chart();
   chart.render({height:400, width: 900});
-  chart.env = {waypointCount: 3};
+  chart.env = {waypointCount: 10};
   chart.setData({
     series: {
       name: "Corona Waves",
       type: "spline",
-      data: DATA, // [30, 1, 20, 5, 10, 1, 100]
+      data: DATA, // [30, 1, 20, 5, 10, 1, 100],
       style: {
         label: {
           format: "%value% unit(s)"
@@ -737,6 +740,9 @@
       ]
     },
     options: {
+      animations: {
+        enabled: true
+      },
       dataGrouping: {
         enabled: true,
         groupCount: 2
