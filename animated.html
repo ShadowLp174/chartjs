@@ -52,7 +52,8 @@
         dot: false
       },
       barWidth: 20,
-      drawRays: false
+      drawRays: false,
+      scaleSteps: 8
     }
     var envVars = {
       horizontalSpace: 0,
@@ -422,7 +423,7 @@
       var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
       var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
 
-      var scaleSteps = 8;
+      var scaleSteps = options.scaleSteps;
       for (let i = 1; i <= scaleSteps; i++) {
         ctx.beginPath();
         let value = highestValue / scaleSteps * i;
@@ -690,7 +691,6 @@
       ctx.lineWidth = 2;
       ctx.strokeStyle = options.style.series.color;
       ctx.fillStyle = options.style.series.color;
-      console.log(`ctx.fillRect(${x}, ${y1}, ${options.barWidth}, ${y2})`);
       ctx.fillRect(x, y1 - data.series.data[currentBar] * envVars.verticalMultiplier, options.barWidth, y2);
       if (!points[currentBar][t + 1]) {
         t = 1;
@@ -703,6 +703,40 @@
 
     var setData = this.setData = (newData) => {
       data = newData;
+
+      if (data.series.data) {
+        if (options.yScale) {
+          if (options.yScale.spaceComputing == "auto") {
+            var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+            var widths = [];
+            var scaleSteps = options.scaleSteps;
+            for (let i = 1; i <= scaleSteps; i++) {
+              let value = highestValue / scaleSteps * i;
+              widths.push(ctx.measureText(value));
+            };
+            widths.sort();
+            let val = widths[widths.length - 1];
+
+            var length = ctx.measureText(val).width;
+            var res = (widthDataOffset - 11) - length;
+            if (res < 0) {
+              widthDataOffset += Math.abs(res);
+            }
+          } else if (options.yScale.spaceComputing == "highestValue") {
+            var length = ctx.measureText(highestValue).width;
+            var res = (widthDataOffset - 11) - length;
+            if (res < 0) {
+              widthDataOffset += Math.abs(res);
+            }
+          }
+        } else {
+          var length = ctx.measureText(highestValue).width;
+          var res = (widthDataOffset - 11) - length;
+          if (res < 0) {
+            widthDataOffset += Math.abs(res);
+          }
+        }
+      }
 
       if (data.options) {
         var optionHandler = new OptionHandler(options);
@@ -871,6 +905,9 @@
       data: [
         "1st wave", "", "2nd wave", "", "3rd wave"
       ]
+    },
+    yScale: {
+      spaceComputing: "auto"
     },
     options: {
       animations: {
