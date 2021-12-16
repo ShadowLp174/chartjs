@@ -232,18 +232,66 @@
     }
 
     var handleHover = this.handleHover = (x, y) => {
-      if (data.series.type == "spline") {
-        if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
-          var point = getClosestPoint(x, y);
-          if (currentNearestPoint != point || options.crossHair.enabled || options.drawRays) update(point);
+      switch (data.series.type) {
+        case "spline":
+          if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+            var point = getClosestPoint(x, y);
+            if (currentNearestPoint != point || options.crossHair.enabled || options.drawRays) update(point);
 
-          if (options.drawRays) drawRays(x, y);
+            if (options.drawRays) drawRays(x, y);
 
-          ctx.save();
-          if (options.crossHair.enabled === true) {
+            ctx.save();
+            if (options.crossHair.enabled === true) {
+              ctx.beginPath();
+              ctx.strokeStyle = options.style.uiColor;
+
+              ctx.moveTo(widthDataOffset, y);
+              ctx.lineTo(x, y);
+
+              ctx.moveTo(x, height - heightDataOffset);
+              ctx.lineTo(x, y);
+
+              ctx.stroke();
+              ctx.closePath();
+
+              if (options.crossHair.dot === true) {
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
+                ctx.fill();
+                ctx.closePath();
+              }
+            }
+
             ctx.beginPath();
-            ctx.strokeStyle = options.style.uiColor;
+            ctx.fillStyle = options.style.uiColor;
+            ctx.font = "normal 15px normal";
 
+            var horizontalSpace = ((width - (widthDataOffset * 2)) / data.series.data.length);
+            var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+            var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+            //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
+            ctx.stroke();
+
+            if (currentNearestPoint != point || options.drawRays || options.crossHair.enabled) {
+              drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
+              currentNearestPoint = point;
+            }
+
+            ctx.closePath();
+            ctx.restore();
+          } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+            update();
+          }
+          break;
+        case "bar":
+          if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+            var point = getClosestPoint(x, y);
+            update(point);
+
+            ctx.save();
+            ctx.beginPath();
+
+            ctx.strokeStyle = options.style.uiColor;
             ctx.moveTo(widthDataOffset, y);
             ctx.lineTo(x, y);
 
@@ -252,56 +300,83 @@
 
             ctx.stroke();
             ctx.closePath();
+            ctx.restore();
+          } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+            update();
+          }
+          break;
+        case "bezier":
+          if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+            var point = getClosestPoint(x, y);
+            if (currentNearestPoint != point || options.crossHair.enabled || options.drawRays) update(point);
 
-            if (options.crossHair.dot === true) {
+            if (options.drawRays) drawRays(x, y);
+
+            ctx.save();
+            if (options.crossHair.enabled === true) {
               ctx.beginPath();
-              ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
-              ctx.fill();
+              ctx.strokeStyle = options.style.uiColor;
+
+              ctx.moveTo(widthDataOffset, y);
+              ctx.lineTo(x, y);
+
+              ctx.moveTo(x, height - heightDataOffset);
+              ctx.lineTo(x, y);
+
+              ctx.stroke();
               ctx.closePath();
+
+              if (options.crossHair.dot === true) {
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
+                ctx.fill();
+                ctx.closePath();
+              }
             }
+
+            ctx.beginPath();
+            ctx.fillStyle = options.style.uiColor;
+            ctx.font = "normal 15px normal";
+
+            var horizontalSpace = ((width - (widthDataOffset * 2)) / data.series.data.length);
+            var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+            var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+            //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
+            ctx.stroke();
+
+            if (currentNearestPoint != point || options.drawRays || options.crossHair.enabled) {
+              drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
+              currentNearestPoint = point;
+            }
+
+            ctx.closePath();
+            ctx.restore();
+          } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+            update();
           }
+          break;
+        default:
+          if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+            var point = getClosestPoint(x, y);
+            update(point);
 
-          ctx.beginPath();
-          ctx.fillStyle = options.style.uiColor;
-          ctx.font = "normal 15px normal";
+            ctx.save();
+            ctx.beginPath();
 
-          var horizontalSpace = ((width - (widthDataOffset * 2)) / data.series.data.length);
-          var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
-          var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
-          //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
-          ctx.stroke();
+            ctx.strokeStyle = options.style.uiColor;
+            ctx.moveTo(widthDataOffset, y);
+            ctx.lineTo(x, y);
 
-          if (currentNearestPoint != point || options.drawRays || options.crossHair.enabled) {
-            drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
-            currentNearestPoint = point;
+            ctx.moveTo(x, height - heightDataOffset);
+            ctx.lineTo(x, y);
+
+            ctx.stroke();
+            ctx.closePath();
+            ctx.restore();
+          } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+            update();
           }
-
-          ctx.closePath();
-          ctx.restore();
-        } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
-          update();
-        }
-      } else if (data.series.type == "bar") {
-        if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
-          var point = getClosestPoint(x, y);
-          update(point);
-
-          ctx.save();
-          ctx.beginPath();
-
-          ctx.strokeStyle = options.style.uiColor;
-          ctx.moveTo(widthDataOffset, y);
-          ctx.lineTo(x, y);
-
-          ctx.moveTo(x, height - heightDataOffset);
-          ctx.lineTo(x, y);
-
-          ctx.stroke();
-          ctx.closePath();
-          ctx.restore();
-        } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
-          update();
-        }
+          break;
       }
     }
 
@@ -434,6 +509,58 @@
       ctx.restore();
     }
 
+    var drawBezier = this.drawBezier = (highlighted) => {
+      ctx.save();
+      ctx.fillStyle = options.style.series.color;
+      ctx.strokeStyle = options.style.series.color;
+
+      for (let i = 0; i <= data.series.data.length; i++) {
+        let start = {
+          x: widthDataOffset + 1 + ((i + 1) * envVars.horizontalSpace),
+          y: (height - heightDataOffset) - data.series.data[i] * envVars.verticalMultiplier
+        };
+        let end = {
+          x: widthDataOffset + 1 + ((i + 2) * envVars.horizontalSpace),
+          y: (height - heightDataOffset) - data.series.data[i + 1] * envVars.verticalMultiplier
+        }
+        let cp1 = {
+          x: start.x + (end.x - start.x) / 2,
+          y: start.y
+        }
+        let cp2 = {
+          x: start.x + (end.x - start.x) / 2,
+          y: end.y
+        }
+        if (i != 0) {
+          ctx.moveTo(start.x, start.y);
+          ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(widthDataOffset + 1 + ((i + 1) * envVars.horizontalSpace), (height - heightDataOffset) - data.series.data[i] * envVars.verticalMultiplier, 3, 0, 2 * Math.PI, false);
+          ctx.fill();
+          ctx.closePath();
+        } else {
+          if (data.series.options.displayKnots) {
+            ctx.beginPath();
+            ctx.arc(widthDataOffset + 1, (height - heightDataOffset), 3, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.closePath();
+          }
+          ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
+          ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y);
+        };
+      }
+      if (highlighted && data.series.options.displayKnots) {
+        ctx.beginPath();
+        ctx.fillStyle = options.style.series.semiTransparent;
+        ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * envVars.horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * envVars.verticalMultiplier, 4, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.stroke();
+        ctx.closePath();
+      }
+      ctx.restore();
+    }
+
     var update = this.update = (highlighted) => {
       ctx.lineJoin = "round";
       ctx.save();
@@ -476,6 +603,9 @@
             break;
           case "bar":
             drawBars(highlighted);
+            break;
+          case "bezier":
+            drawBezier(highlighted);
             break;
         }
       }
@@ -683,6 +813,9 @@
               points = barWaypoints;
               window.requestAnimationFrame(drawAnimatedBars);
               break;
+            case "bezier":
+              drawBezier(); // TODO: animate bezier curve
+              break;
           }
         }
       }
@@ -721,7 +854,7 @@
   chart.setData({
     series: {
       name: "Corona Waves",
-      type: "spline",
+      type: "bezier",
       data: DATA, // [30, 1, 20, 5, 10, 1, 100],
       style: {
         label: {
@@ -753,7 +886,6 @@
       }
     }
   });
-  // TODO: bezier curve spline
   // TODO: responsive height, width
   // TODO: TELETYPE DISCORD RICH PRESENCE
   </script>
