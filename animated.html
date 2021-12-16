@@ -367,7 +367,7 @@
 
     var drawSpline = this.drawSpline = (highlighted) => {
       ctx.save();
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1;
       ctx.strokeStyle = options.style.series.color;
       ctx.fillStyle = options.style.series.color;
 
@@ -385,7 +385,7 @@
       }
 
       ctx.beginPath();
-      ctx.lineJoin = "miter";
+      ctx.lineJoin = "round";
       data.series.data.forEach((seriesData, i) => {
         seriesData *= verticalMultiplier;
         if (data.series.options.displayKnots) {
@@ -753,8 +753,9 @@
       }
     }
   });
-  // TODO: TELETYPE DISCORD RICH PRESENCE
+  // TODO: bezier curve spline
   // TODO: responsive height, width
+  // TODO: TELETYPE DISCORD RICH PRESENCE
   </script>
 </body>
 </html>
