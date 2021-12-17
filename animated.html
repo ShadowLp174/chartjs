@@ -583,6 +583,10 @@
           x: widthDataOffset + 1 + ((i + 2) * envVars.horizontalSpace),
           y: (height - heightDataOffset) - data.series.data[i + 1] * envVars.verticalMultiplier
         }
+        if (i == 0) {
+          start.x = widthDataOffset + 1;
+          start.y = height-heightDataOffset
+        }
         let cp1 = {
           x: start.x + (end.x - start.x) / 2,
           y: start.y
@@ -591,14 +595,18 @@
           x: start.x + (end.x - start.x) / 2,
           y: end.y
         }
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y);
+        ctx.stroke();
+        ctx.closePath();
         if (i != 0) {
-          ctx.moveTo(start.x, start.y);
-          ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.arc(widthDataOffset + 1 + ((i + 1) * envVars.horizontalSpace), (height - heightDataOffset) - data.series.data[i] * envVars.verticalMultiplier, 3, 0, 2 * Math.PI, false);
-          ctx.fill();
-          ctx.closePath();
+          if (data.series.options.displayKnots) {
+            ctx.beginPath();
+            ctx.arc(widthDataOffset + 1 + ((i + 1) * envVars.horizontalSpace), (height - heightDataOffset) - data.series.data[i] * envVars.verticalMultiplier, 3, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.closePath();
+          }
         } else {
           if (data.series.options.displayKnots) {
             ctx.beginPath();
@@ -606,8 +614,6 @@
             ctx.fill();
             ctx.closePath();
           }
-          ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
-          ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y);
         };
       }
       if (highlighted && data.series.options.displayKnots) {
