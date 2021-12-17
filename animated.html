@@ -9,6 +9,7 @@
   <div class="chart"></div>
 
   <p>Please note that the data is completely fictional and has nothing to do with the Corona pandemic</p>
+  <p><strong>The pie charts are under developement and will be ready soon</strong></p>
 
   <p>Type:
     <select onchange="changeData()">
@@ -87,6 +88,142 @@
     }
     return this;
   }
+
+  function PieChart() {
+    var options = {
+      style: {
+        backgroundColor: "#282c34",
+        uiColor: "#9da5b4",
+        series: {
+          colors: ["#f45b5b", "#749C14", "#C052A9", "#1369C3"],
+          semiTransparent: "rgba(244, 91, 91, 1)"
+        },
+        tooltip: {
+          background: ["#14161a", "#21252b"],
+          color: "#9da5b4"
+        }
+      }
+    }
+
+    var chart = document.createElement("canvas");
+    var ctx, width, height, center, rad;
+    var data = {};
+    var degrees = [], percentages = [];
+    var partColors = [];
+
+    var getPoint = this.getPoint = (c1,c2,radius,angle) => {
+      return [c1+Math.cos(angle)*radius,c2+Math.sin(angle)*radius];
+    }
+
+    var update = this.update = () => {
+      if (degrees) {
+        ctx.save();
+        ctx.fillStyle = options.style.backgroundColor;
+        ctx.fillRect(0, 0, width, height);
+        ctx.stroke();
+        var colors = options.style.series.colors.slice();
+
+        degrees.forEach((part, i) => {
+          part = part - 90;
+          if (colors.length == 0) {colors = options.style.series.colors.slice()}
+          var rand = Math.floor(Math.random() * colors.length);
+          ctx.fillStyle = colors[rand];
+          ctx.strokeStyle = colors[rand];
+          colors.splice(rand, 1);
+          ctx.beginPath();
+
+          ctx.moveTo(center.x, center.y);
+          var lineEnd = getPoint(center.x, center.y, rad, ((part) * Math.PI)/180);
+          ctx.lineTo(lineEnd[0], lineEnd[1]);
+          ctx.closePath();
+
+          var start = (i != 0) ? degrees[i - 1] - 90 : -90;
+
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, rad, start * (180 / Math.PI), part * (180 / Math.PI));
+          ctx.stroke();
+          //ctx.fill();
+          ctx.closePath();
+        });
+        ctx.restore();
+      }
+    }
+
+    var compare = this.compare = (a,b) => {
+      if (parseFloat(a) < parseFloat(b)) {
+        return -1;
+      } else if (parseFloat(a) > parseFloat(b)) {
+        return 1;
+      }
+      return 0;
+    }
+
+    var setData = this.setData = (newData) => {
+      data = newData;
+
+      if (data.options) {
+        var optionHandler = new OptionHandler(options);
+        options = optionHandler.update(data.options);
+      }
+
+      if (data.series) {
+        var percent = data.series.reduce((prev, curr) => prev + curr) / 100;
+        data.series.forEach((seriesData, i) => {
+          percentages.push(seriesData / percent);
+          degrees.push((seriesData / percent) * 3.6);
+        });
+        degrees = degrees.sort(compare);
+        console.log(percentages);
+      }
+
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.fillStyle = options.style.backgroundColor;
+      ctx.fillRect(0, 0, width, height);
+
+      update();
+    }
+
+    var render = this.render = (opts) => {
+      let container = document.querySelector(".chart");
+      if (opts.container) {
+        if ((typeof opts.container).toLowerCase() == "string") {
+          container = document.querySelector(opts.container);
+        } else {
+          container = opts.container;
+        }
+      }
+      container.appendChild(chart);
+      chart.width = (!opts.width) ? 600 : opts.width;
+      chart.height = (!opts.height) ? 300 : opts.height;
+      chart.addEventListener("mousemove", function(event) {
+        /*var mousepos = getMousePos(event);
+        handleHover(mousepos.x, mousepos.y);*/
+      });
+      chart.addEventListener("mouseout", function(event) {
+        currentNearestPoint = null;
+        update();
+      });
+
+      width = chart.getBoundingClientRect().width; // value init
+      height = chart.getBoundingClientRect().height;
+      ctx = chart.getContext("2d");
+      center = {x: width / 2, y: height / 2};
+      rad = (height < width) ? (height - 20) / 2 : (width - 20) / 2
+
+      update();
+    }
+    return this;
+  }
+
+  var pie = new PieChart();
+  pie.render({});
+  pie.setData({
+    series: [
+      30, 1, 20, 5, 10, 1, 100
+    ]
+  });
+
   function Chart() {
     var width = 0; var height = 0;
     var options = {
@@ -144,6 +281,12 @@
             return data;
           },
           "set": function() {console.warn("Please use chart.setData() to set a new dataset.");}
+        },
+        "chartElement": {
+          "get": function() {
+            return chart;
+          },
+          "set": function() {}
         }
     });
 
@@ -673,6 +816,8 @@
           case "bezier":
             drawBezier(highlighted);
             break;
+          case "pie":
+            break;
         }
       }
     }
@@ -921,9 +1066,17 @@
     };
 
     var render = this.render = (opts) => {
-      document.querySelector(".chart").appendChild(chart);
-      chart.width = (!opts) ? 600 : opts.width;
-      chart.height = (!opts) ? 300 : opts.height;
+      let container = document.querySelector(".chart");
+      if (opts.container) {
+        if ((typeof opts.container).toLowerCase() == "string") {
+          container = document.querySelector(opts.container);
+        } else {
+          container = opts.container;
+        }
+      }
+      container.appendChild(chart);
+      chart.width = (!opts.width) ? 600 : opts.width;
+      chart.height = (!opts.height) ? 300 : opts.height;
       chart.addEventListener("mousemove", function(event) {
         var mousepos = getMousePos(event);
         handleHover(mousepos.x, mousepos.y);
@@ -933,7 +1086,7 @@
         update();
       });
       chart.addEventListener("mousewheel", function(event) {
-        handleScroll(event);
+        handleScroll(event); // TODO: Zooming
       });
 
       width = chart.getBoundingClientRect().width; // value init
