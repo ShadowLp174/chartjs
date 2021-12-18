@@ -108,11 +108,57 @@
     var chart = document.createElement("canvas");
     var ctx, width, height, center, rad;
     var data = {};
-    var degrees = [], percentages = [];
+    var degrees = [], percentages = [], angles = [];
     var partColors = [];
 
     var getPoint = this.getPoint = (c1,c2,radius,angle) => {
       return [c1+Math.cos(angle)*radius,c2+Math.sin(angle)*radius];
+    }
+
+    var radians = this.radians = (degrees) => {
+      return degrees * Math.PI / 180;
+    }
+
+    var drawPointAlgo = this.drawPointAlgo = (angle) => {
+      // C (cos(90-alpha)*r + B.x | sin(90-alpha) * r + B.y)
+      angle += 180;
+      var point = {
+        x: Math.cos(((90+angle) * Math.PI)/180) * rad + center.x,
+        y: Math.sin(((90+angle) * Math.PI)/180) * rad + center.y
+      }
+      ctx.save();
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = "red";
+      ctx.beginPath();
+      ctx.moveTo(center.x, center.y);
+      ctx.lineTo(center.x, center.y + rad);
+      ctx.lineTo(point.x, point.y);
+      ctx.lineTo(center.x, center.y);
+      ctx.stroke();
+      ctx.closePath();
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI, false);
+      ctx.fill();
+      ctx.closePath();
+      ctx.restore();
+    }
+
+    var algoTest = this.algoTest = (min, max, interval) => {
+      let curr = min;
+      while (curr <= max) {
+        drawPointAlgo(curr);
+        curr += interval;
+      }
+    }
+
+    var getArcPoint = this.getArcPoint = (c, r, angle) => {
+      // C (cos(90-alpha)*r + B.x | sin(90-alpha) * r + B.y)
+      angle += 180;
+      var point = {
+        x: Math.cos(((90+angle) * Math.PI)/180) * r + c.x,
+        y: Math.sin(((90+angle) * Math.PI)/180) * r + c.y
+      }
+      return point;
     }
 
     var update = this.update = () => {
@@ -120,31 +166,26 @@
         ctx.save();
         ctx.fillStyle = options.style.backgroundColor;
         ctx.fillRect(0, 0, width, height);
-        ctx.stroke();
         var colors = options.style.series.colors.slice();
 
-        degrees.forEach((part, i) => {
-          part = part - 90;
+        let a = 0;
+        for (let i = 0; i < angles.length; i++) {
+          let part = angles[i] - 90;
+          let start = (i == 0) ? -90 : angles[i - 1] - 90;
           if (colors.length == 0) {colors = options.style.series.colors.slice()}
           var rand = Math.floor(Math.random() * colors.length);
           ctx.fillStyle = colors[rand];
-          ctx.strokeStyle = colors[rand];
-          colors.splice(rand, 1);
-          ctx.beginPath();
+          ctx.strokeStyle = options.style.backgroundColor;
 
+          ctx.beginPath();
           ctx.moveTo(center.x, center.y);
-          var lineEnd = getPoint(center.x, center.y, rad, ((part) * Math.PI)/180);
-          ctx.lineTo(lineEnd[0], lineEnd[1]);
-          ctx.closePath();
-
-          var start = (i != 0) ? degrees[i - 1] - 90 : -90;
-
-          ctx.beginPath();
-          ctx.arc(center.x, center.y, rad, start * (180 / Math.PI), part * (180 / Math.PI));
+          ctx.arc(center.x, center.y, rad, radians(start), radians(part));
+          ctx.moveTo(center.x, center.y);
           ctx.stroke();
-          //ctx.fill();
+          ctx.fill();
           ctx.closePath();
-        });
+          colors.splice(rand, 1);
+        }
         ctx.restore();
       }
     }
@@ -173,7 +214,11 @@
           degrees.push((seriesData / percent) * 3.6);
         });
         degrees = degrees.sort(compare);
-        console.log(percentages);
+        let prev = 0;
+        degrees.forEach((val, i) => {
+          angles.push(val + prev);
+          prev += val;
+        });
       }
 
       ctx.clearRect(0, 0, width, height);
