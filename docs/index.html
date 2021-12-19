@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chart.JS</title>
+</head>
+<body>
+
+  <div id="docute"></div>
+  <script src="https://unpkg.com/docute@4/dist/docute.js"></script>
+  <script>
+    new Docute({
+      target: '#docute',
+      theme: "dark",
+      sidebar: [
+      {
+        title: 'Chart Versions',
+        children: [
+          {
+            title: 'Bar/Spline/Bezier Chart',
+            link: 'chart'
+          },
+          {
+            title: 'Pie Chart',
+            link: 'pie'
+          }
+        ]
+      }
+    ]
+  })
+  </script>
+</body>
+</html>
