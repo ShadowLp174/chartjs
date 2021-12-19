@@ -9,7 +9,6 @@
   <div class="chart"></div>
 
   <p>Please note that the data is completely fictional and has nothing to do with the Corona pandemic</p>
-  <p><strong>The pie charts are under developement and will be ready soon</strong></p>
 
   <p>Type:
     <select onchange="changeData()">
@@ -96,27 +95,125 @@
         uiColor: "#9da5b4",
         series: {
           colors: ["#f45b5b", "#749C14", "#C052A9", "#1369C3"],
+          color: "alternating",
           semiTransparent: "rgba(244, 91, 91, 1)"
         },
         tooltip: {
           background: ["#14161a", "#21252b"],
           color: "#9da5b4"
         }
+      },
+      series: {
+        tooltip: {
+          type: "inline-auto",
+          format: "%percentage%%"
+        },
+        drawCentres: false
       }
     }
 
     var chart = document.createElement("canvas");
     var ctx, width, height, center, rad;
     var data = {};
-    var degrees = [], percentages = [], angles = [];
-    var partColors = [];
-
-    var getPoint = this.getPoint = (c1,c2,radius,angle) => {
-      return [c1+Math.cos(angle)*radius,c2+Math.sin(angle)*radius];
-    }
+    var degrees = [], percentages = [], angles = [], partColors = [], partCenters = [], originalData;
 
     var radians = this.radians = (degrees) => {
       return degrees * Math.PI / 180;
+    }
+
+    var drawTooltip = this.drawTooltip = (x, y, text) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = options.style.tooltip.background[0];
+      x += 20;
+      y -= 8;
+
+      var boxWidth = ctx.measureText(text).width + 10;
+      let metrics = ctx.measureText(text);
+      let actualTextHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      var boxHeight = actualTextHeight + 10;
+
+      ctx.beginPath();
+
+      var modifier = 0;
+      var triangleModifier = 0;
+      var factor = 1;
+      if (boxWidth + x > width) {
+        modifier = (boxWidth + 40) * (-1);
+        triangleModifier = modifier + boxWidth;
+        factor = (-1);
+      }
+
+      ctx.moveTo(x + triangleModifier, y);
+      ctx.lineTo(x  + (-10)*factor + triangleModifier, y + boxHeight / 2);
+      ctx.lineTo(x + triangleModifier, y + boxHeight);
+      ctx.lineTo(x + 1*factor + triangleModifier, y + boxHeight);
+      ctx.lineTo(x + 1*factor + triangleModifier, y);
+      ctx.fill();
+
+      ctx.closePath();
+
+      ctx.fillRect(x + modifier, y, boxWidth, boxHeight);
+      ctx.closePath();
+
+      ctx.beginPath();
+      ctx.fillStyle = options.style.tooltip.color;
+      ctx.fillText(text, x + 5 + modifier, y + 2.5 + actualTextHeight);
+
+      ctx.closePath();
+      ctx.restore();
+    }
+
+    var getMousePos = this.getMousePos = (evt) => {
+      var rect = chart.getBoundingClientRect(), // abs. size of element
+          scaleX = chart.width / chart.width,    // relationship bitmap vs. element for X
+          scaleY = chart.height / rect.height;  // relationship bitmap vs. element for Y
+
+      return {
+        x: (evt.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
+        y: (evt.clientY - rect.top) * scaleY     // been adjusted to be relative to element
+      }
+    }
+
+    var getClosestPoint = this.getClosestPoint = (x, y) => {
+      var distances = [];
+      partCenters.forEach((point, i) => {
+        var a = point.x - x;
+        var b = point.y - y;
+        distances.push([Math.sqrt(a*a + b*b), i]);
+      });
+
+      function sortDistances(numbers) {
+        if (numbers.length >= 1) {
+          var pivot = numbers[Math.floor(Math.random()*numbers.length)];
+          var smaller = [], bigger = [], pivots = [];
+          for (let i = 0; i < numbers.length; i++) {
+            if (numbers[i][0] != pivot[0]) {
+              if (numbers[i][0] < pivot[0]) {
+                smaller.push(numbers[i]);
+              } else if (numbers[i][0] > pivot[0]){
+                bigger.push(numbers[i]);
+              } else {smaller.push(numbers[i])}
+            } else {pivots.push(pivot)}
+          }
+          bigger = sortDistances(bigger);
+          smaller = sortDistances(smaller);
+          numbers = smaller.concat(pivots).concat(bigger);
+        }
+        return numbers;
+      }
+
+      distances = sortDistances(distances);
+      return distances[0][1];
+    }
+
+    var handleHover = this.handleHover = (x, y) => {
+      let part = getClosestPoint(x, y);
+
+      update();
+      let format = options.series.tooltip.format.replace(/%percentage%/gi, Math.round(percentages[part]*10)/10);
+      format = format.replace(/%value%/gi, data.series[part]);
+      drawTooltip(partCenters[part].x, partCenters[part].y, format);
     }
 
     var drawPointAlgo = this.drawPointAlgo = (angle) => {
@@ -169,13 +266,22 @@
         var colors = options.style.series.colors.slice();
 
         let a = 0;
+        let colorToggle = 0;
         for (let i = 0; i < angles.length; i++) {
           let part = angles[i] - 90;
           let start = (i == 0) ? -90 : angles[i - 1] - 90;
-          if (colors.length == 0) {colors = options.style.series.colors.slice()}
-          var rand = Math.floor(Math.random() * colors.length);
-          ctx.fillStyle = colors[rand];
-          ctx.strokeStyle = options.style.backgroundColor;
+
+          if (options.style.series.color == "alternating") {
+            ctx.fillStyle = colors[colorToggle];
+            ctx.strokeStyle = options.style.backgroundColor;
+            colorToggle = (colorToggle == 0) ? 1 : 0;
+          } else if (options.style.series.color == "random") {
+            if (colors.length == 0) {colors = options.style.series.colors.slice()}
+            var rand = Math.floor(Math.random() * colors.length);
+            ctx.fillStyle = colors[rand];
+            ctx.strokeStyle = options.style.backgroundColor;
+            colors.splice(rand, 1);
+          }
 
           ctx.beginPath();
           ctx.moveTo(center.x, center.y);
@@ -184,7 +290,18 @@
           ctx.stroke();
           ctx.fill();
           ctx.closePath();
-          colors.splice(rand, 1);
+        }
+
+        if (options.series.drawCentres == true) {
+          partCenters.forEach((centre, i) => {
+            ctx.beginPath();
+            ctx.fillStyle = "red";
+            ctx.strokeStyle = "red";
+            ctx.arc(centre.x, centre.y, 3, 0, 2 * Math.PI, false);
+            ctx.stroke();
+            ctx.fill();
+            ctx.closePath();
+          });
         }
         ctx.restore();
       }
@@ -208,22 +325,30 @@
       }
 
       if (data.series) {
+        originalData = data.series;
         var percent = data.series.reduce((prev, curr) => prev + curr) / 100;
         data.series.forEach((seriesData, i) => {
           percentages.push(seriesData / percent);
           degrees.push((seriesData / percent) * 3.6);
         });
+        percentages = percentages.sort(compare);
         degrees = degrees.sort(compare);
         let prev = 0;
         degrees.forEach((val, i) => {
           angles.push(val + prev);
           prev += val;
         });
+        angles.forEach((angle, i) => {
+          angle -= degrees[i] / 2;
+          let point = getArcPoint(center, rad/2, angle);
+          partCenters.push(point);
+        });
       }
 
       ctx.clearRect(0, 0, width, height);
 
       ctx.fillStyle = options.style.backgroundColor;
+      ctx.font = "normal 15px normal";
       ctx.fillRect(0, 0, width, height);
 
       update();
@@ -242,8 +367,8 @@
       chart.width = (!opts.width) ? 600 : opts.width;
       chart.height = (!opts.height) ? 300 : opts.height;
       chart.addEventListener("mousemove", function(event) {
-        /*var mousepos = getMousePos(event);
-        handleHover(mousepos.x, mousepos.y);*/
+        var mousepos = getMousePos(event);
+        handleHover(mousepos.x, mousepos.y);
       });
       chart.addEventListener("mouseout", function(event) {
         currentNearestPoint = null;
@@ -266,7 +391,14 @@
   pie.setData({
     series: [
       30, 1, 20, 5, 10, 1, 100
-    ]
+    ],
+    options: {
+      series: {
+        tooltip: {
+          format: "%value% (%percentage%%)"
+        }
+      }
+    }
   });
 
   function Chart() {
