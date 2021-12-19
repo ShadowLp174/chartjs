@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Chart.JS animation tests</title>
+  <title>Chart.JS</title>
 </head>
 <body>
   <h1>Chart.JS</h1>
@@ -96,7 +96,8 @@
         series: {
           colors: ["#f45b5b", "#749C14", "#C052A9", "#1369C3"],
           color: "alternating",
-          semiTransparent: "rgba(244, 91, 91, 1)"
+          semiTransparent: "rgba(244, 91, 91, 1)",
+          highlighted: "#802E2A"
         },
         tooltip: {
           background: ["#14161a", "#21252b"],
@@ -209,8 +210,8 @@
 
     var handleHover = this.handleHover = (x, y) => {
       let part = getClosestPoint(x, y);
+      update(part);
 
-      update();
       let format = options.series.tooltip.format.replace(/%percentage%/gi, Math.round(percentages[part]*10)/10);
       format = format.replace(/%value%/gi, data.series[part]);
       drawTooltip(partCenters[part].x, partCenters[part].y, format);
@@ -258,7 +259,7 @@
       return point;
     }
 
-    var update = this.update = () => {
+    var update = this.update = (highlighted) => {
       if (degrees) {
         ctx.save();
         ctx.fillStyle = options.style.backgroundColor;
@@ -276,12 +277,13 @@
             ctx.strokeStyle = options.style.backgroundColor;
             colorToggle = (colorToggle == 0) ? 1 : 0;
           } else if (options.style.series.color == "random") {
-            if (colors.length == 0) {colors = options.style.series.colors.slice()}
+            if (colors.length == 0) {colors = options.style.series.colors.slice();}
             var rand = Math.floor(Math.random() * colors.length);
             ctx.fillStyle = colors[rand];
             ctx.strokeStyle = options.style.backgroundColor;
             colors.splice(rand, 1);
           }
+          if (highlighted == i) {ctx.fillStyle = options.style.series.highlighted;}
 
           ctx.beginPath();
           ctx.moveTo(center.x, center.y);
@@ -378,7 +380,7 @@
       width = chart.getBoundingClientRect().width; // value init
       height = chart.getBoundingClientRect().height;
       ctx = chart.getContext("2d");
-      center = {x: width / 2, y: height / 2};
+      center = {x: width / 4, y: height / 2};
       rad = (height < width) ? (height - 20) / 2 : (width - 20) / 2
 
       update();
