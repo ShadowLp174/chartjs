@@ -70,6 +70,96 @@
   </script>
 
   <script>
+  /**
+   * Animates bezier-curve
+   *
+   * @param ctx       The canvas context to draw to
+   * @param x0        The x-coord of the start point
+   * @param y0        The y-coord of the start point
+   * @param x1        The x-coord of the control point
+   * @param y1        The y-coord of the control point
+   * @param x2        The x-coord of the end point
+   * @param y2        The y-coord of the end point
+   * @param duration  The duration in milliseconds
+   */
+  function animatePathDrawing(ctx, x0, y0, x1, y1, x2, y2, duration) {
+      var start = null;
+
+      var step = function animatePathDrawingStep(timestamp) {
+          if (start === null)
+              start = timestamp;
+
+          var delta = timestamp - start,
+              progress = Math.min(delta / duration, 1);
+
+          // Clear canvas
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+          // Draw curve
+          drawBezierSplit(ctx, x0, y0, x1, y1, x2, y2, 0, progress);
+
+          if (progress < 1) {
+              window.requestAnimationFrame(step);
+          }
+      };
+
+      window.requestAnimationFrame(step);
+  }
+
+  /**
+   * Draws a splitted bezier-curve
+   *
+   * @param ctx       The canvas context to draw to
+   * @param x0        The x-coord of the start point
+   * @param y0        The y-coord of the start point
+   * @param x1        The x-coord of the control point
+   * @param y1        The y-coord of the control point
+   * @param x2        The x-coord of the end point
+   * @param y2        The y-coord of the end point
+   * @param t0        The start ratio of the splitted bezier from 0.0 to 1.0
+   * @param t1        The start ratio of the splitted bezier from 0.0 to 1.0
+   */
+  function drawBezierSplit(ctx, x0, y0, x1, y1, x2, y2, t0, t1) {
+      ctx.beginPath();
+
+  	if( 0.0 == t0 && t1 == 1.0 ) {
+  		ctx.moveTo( x0, y0 );
+  		ctx.quadraticCurveTo( x1, y1, x2, y2 );
+  	} else if( t0 != t1 ) {
+          var t00 = t0 * t0,
+              t01 = 1.0 - t0,
+              t02 = t01 * t01,
+              t03 = 2.0 * t0 * t01;
+
+          var nx0 = t02 * x0 + t03 * x1 + t00 * x2,
+              ny0 = t02 * y0 + t03 * y1 + t00 * y2;
+
+          t00 = t1 * t1;
+          t01 = 1.0 - t1;
+          t02 = t01 * t01;
+          t03 = 2.0 * t1 * t01;
+
+          var nx2 = t02 * x0 + t03 * x1 + t00 * x2,
+              ny2 = t02 * y0 + t03 * y1 + t00 * y2;
+
+          var nx1 = lerp ( lerp ( x0 , x1 , t0 ) , lerp ( x1 , x2 , t0 ) , t1 ),
+              ny1 = lerp ( lerp ( y0 , y1 , t0 ) , lerp ( y1 , y2 , t0 ) , t1 );
+
+          ctx.moveTo( nx0, ny0 );
+          ctx.quadraticCurveTo( nx1, ny1, nx2, ny2 );
+  	}
+
+      ctx.stroke();
+      ctx.closePath();
+  }
+
+  /**
+   * Linearly interpolates between two numbers
+   */
+  function lerp(v0, v1, t) {
+      return ( 1.0 - t ) * v0 + t * v1;
+  }
+
   function formatter() {
     return this;
   }
@@ -213,7 +303,8 @@
       update(part);
 
       let format = options.series.tooltip.format.replace(/%percentage%/gi, Math.round(percentages[part]*10)/10);
-      format = format.replace(/%value%/gi, data.series[part]);
+      format = format.replace(/%value%/gi, data.series[part][0]);
+      format = format.replace(/%name%/gi, data.series[part][1]);
       drawTooltip(partCenters[part].x, partCenters[part].y, format);
     }
 
@@ -259,6 +350,10 @@
       return point;
     }
 
+    var drawLegend = this.drawLegend = () => {
+
+    }
+
     var update = this.update = (highlighted) => {
       if (degrees) {
         ctx.save();
@@ -294,6 +389,14 @@
           ctx.closePath();
         }
 
+        ctx.beginPath();
+        ctx.strokeStyle = options.style.backgroundColor;
+        ctx.lineWidth = 0.6;
+        ctx.moveTo(center.x, center.y);
+        ctx.lineTo(center.x, center.y - rad);
+        ctx.stroke();
+        ctx.closePath();
+
         if (options.series.drawCentres == true) {
           partCenters.forEach((centre, i) => {
             ctx.beginPath();
@@ -327,11 +430,23 @@
       }
 
       if (data.series) {
-        originalData = data.series;
-        var percent = data.series.reduce((prev, curr) => prev + curr) / 100;
+        originalData = data.series.slice();
+        var percent = 0;
+        data.series.forEach((s, i) => {
+          percent += s[0];
+        });
+        percent /= 100;
         data.series.forEach((seriesData, i) => {
-          percentages.push(seriesData / percent);
-          degrees.push((seriesData / percent) * 3.6);
+          percentages.push(seriesData[0] / percent);
+          degrees.push((seriesData[0] / percent) * 3.6);
+        });
+        data.series.sort((a,b) => {
+          if (parseFloat(a[0]) < parseFloat(b[0])) {
+            return -1;
+          } else if (parseFloat(a[0]) > parseFloat(b[0])) {
+            return 1;
+          }
+          return 0;
         });
         percentages = percentages.sort(compare);
         degrees = degrees.sort(compare);
@@ -387,21 +502,6 @@
     }
     return this;
   }
-
-  var pie = new PieChart();
-  pie.render({});
-  pie.setData({
-    series: [
-      30, 1, 20, 5, 10, 1, 100
-    ],
-    options: {
-      series: {
-        tooltip: {
-          format: "%value% (%percentage%%)"
-        }
-      }
-    }
-  });
 
   function Chart() {
     var width = 0; var height = 0;
@@ -828,10 +928,9 @@
       ctx.strokeStyle = options.style.series.color;
       ctx.fillStyle = options.style.series.color;
 
-      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
-
-      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
-      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+      var horizontalSpace = envVars.horizontalSpace;
+      var highestValue = envVars.highestValue;
+      var verticalMultiplier = envVars.verticalMultiplier;
 
       if (data.series.options.displayKnots) {
         ctx.beginPath();
@@ -841,35 +940,69 @@
         ctx.stroke();
       }
 
-      ctx.beginPath();
-      ctx.lineJoin = "round";
-      data.series.data.forEach((seriesData, i) => {
-        seriesData *= verticalMultiplier;
-        if (data.series.options.displayKnots) {
-          ctx.beginPath();
-          ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
-          ctx.fill();
-          ctx.closePath();
-          ctx.stroke();
-        }
-
-        if (i != 0) {
-          ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
-        } else {
-          ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
-        }
-        ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
-        ctx.stroke();
-      });
-      ctx.closePath();
-
-      if (highlighted && data.series.options.displayKnots) {
+      if (typeof data.series.data[0] != "object") {
         ctx.beginPath();
-        ctx.fillStyle = options.style.series.semiTransparent;
-        ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * verticalMultiplier, 4, 0, 2 * Math.PI, false);
-        ctx.fill();
-        ctx.stroke();
+        ctx.lineJoin = "round";
+        data.series.data.forEach((seriesData, i) => {
+          seriesData *= verticalMultiplier;
+          if (data.series.options.displayKnots) {
+            ctx.beginPath();
+            ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.closePath();
+            ctx.stroke();
+          }
+
+          if (i != 0) {
+            ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
+          } else {
+            ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
+          }
+          ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
+          ctx.stroke();
+        });
         ctx.closePath();
+
+        if (highlighted && data.series.options.displayKnots) {
+          ctx.beginPath();
+          ctx.fillStyle = options.style.series.semiTransparent;
+          ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * verticalMultiplier, 4, 0, 2 * Math.PI, false);
+          ctx.fill();
+          ctx.stroke();
+          ctx.closePath();
+        }
+      } else {
+        ctx.beginPath();
+        data.series.data.forEach((dataSeries, i) => {
+          dataSeries.forEach((seriesData, i) => { // draw every spline
+            seriesData *= verticalMultiplier;
+            if (data.series.options.displayKnots) {
+              ctx.beginPath();
+              ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
+              ctx.fill();
+              ctx.closePath();
+              ctx.stroke();
+            }
+
+            if (i != 0) {
+              ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
+            } else {
+              ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
+            }
+            ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
+            ctx.stroke();
+          });
+          ctx.closePath();
+
+          if (highlighted && data.series.options.displayKnots) {
+            ctx.beginPath();
+            ctx.fillStyle = options.style.series.semiTransparent;
+            ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * verticalMultiplier, 4, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.stroke();
+            ctx.closePath();
+          }
+        });
       }
 
       ctx.restore();
@@ -1320,6 +1453,22 @@
       }
     }
   });
+
+  var pie = new PieChart();
+  pie.render({});
+  pie.setData({
+    series: [
+      [30, "mid"], [1, "small"], [20, "light-mid"], [5, "small"], [10, "light-small"], [1, "small"], [100, "biggest"]
+    ],
+    options: {
+      series: {
+        tooltip: {
+          format: "%name% (%value% %percentage%%)"
+        }
+      }
+    }
+  });
+  // TODO: multiple splines
   // TODO: responsive height, width
   // TODO: TELETYPE DISCORD RICH PRESENCE
   </script>
