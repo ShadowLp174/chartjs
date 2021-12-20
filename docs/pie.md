@@ -19,7 +19,7 @@ pieChart.setData({
       }
     }
   }
-});
+}); // Some random values
 </script>
 ```
 
@@ -31,8 +31,8 @@ pieChart.setData({
 
 #### Methods
 
-* [PieChart.render(opts)](#.render(opts))
-* [PieChart.setData(data)](#.setData(data))
+* [PieChart.render(opts)](#renderopts)
+* [PieChart.setData(data)](#setDatadata)
 
 ##### **.render(opts)**
 
