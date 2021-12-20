@@ -1,19 +1,165 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Chart.JS | Deprecated</title>
+  <title>Chart.JS</title>
 </head>
 <body>
   <h1>Chart.JS</h1>
 
   <div class="chart"></div>
 
-  <div id="info">
-    <p><strong>Please note that this version is deprecated.</strong> Checkout the new Chart.JS tests with animations!</p>
-    <a href="animated.html">Animated</a>
-  </div>
+  <p>Please note that the data is completely fictional and has nothing to do with the Corona pandemic</p>
+
+  <p>Type:
+    <select onchange="changeData()">
+      <option value="spline">Spline</option>
+      <option value="bar">Bar</option>
+      <option value="bezier">Bezier</option>
+    </select>
+  </p>
+  <p>Options:
+    <textarea onchange="changeData()" style="width: 50%; height: 50vh">var opts = {
+      series: {
+        name: "Corona Waves",
+        type: "spline",
+        data: DATA, // [30, 1, 20, 5, 10, 1, 100],
+        style: {
+          label: {
+            format: "%value% unit(s)"
+          }
+        },
+        options: {
+          displayKnots: false
+        }
+      },
+      xAxis: {
+        start: "No Data",
+        pointInterval: 10,
+        data: [
+          "1st wave", "", "2nd wave", "", "3rd wave"
+        ]
+      },
+      yScale: {
+        spaceComputing: "auto"
+      },
+      options: {
+        animations: {
+          enabled: true
+        },
+        dataGrouping: {
+          enabled: true,
+          groupCount: 2
+        },
+        drawRays: false,
+        crossHair: {
+          enabled: true
+        }
+      }
+    }</textarea>
+    Animation Wapoint count: <input onchange="changeData()" value="3"></input>
+  </p>
 
   <script>
+  function changeData() {
+    var sel = document.querySelector("select");
+    eval(document.querySelector("textarea").value);
+    opts.series.type = sel.value;
+    chart.env = {waypointCount: document.querySelector("input").value};
+    chart.setData(opts);
+  }
+  </script>
+
+  <script>
+  /**
+   * Animates bezier-curve
+   *
+   * @param ctx       The canvas context to draw to
+   * @param x0        The x-coord of the start point
+   * @param y0        The y-coord of the start point
+   * @param x1        The x-coord of the control point
+   * @param y1        The y-coord of the control point
+   * @param x2        The x-coord of the end point
+   * @param y2        The y-coord of the end point
+   * @param duration  The duration in milliseconds
+   */
+  function animatePathDrawing(ctx, x0, y0, x1, y1, x2, y2, duration) {
+      var start = null;
+
+      var step = function animatePathDrawingStep(timestamp) {
+          if (start === null)
+              start = timestamp;
+
+          var delta = timestamp - start,
+              progress = Math.min(delta / duration, 1);
+
+          // Clear canvas
+          ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+          // Draw curve
+          drawBezierSplit(ctx, x0, y0, x1, y1, x2, y2, 0, progress);
+
+          if (progress < 1) {
+              window.requestAnimationFrame(step);
+          }
+      };
+
+      window.requestAnimationFrame(step);
+  }
+
+  /**
+   * Draws a splitted bezier-curve
+   *
+   * @param ctx       The canvas context to draw to
+   * @param x0        The x-coord of the start point
+   * @param y0        The y-coord of the start point
+   * @param x1        The x-coord of the control point
+   * @param y1        The y-coord of the control point
+   * @param x2        The x-coord of the end point
+   * @param y2        The y-coord of the end point
+   * @param t0        The start ratio of the splitted bezier from 0.0 to 1.0
+   * @param t1        The start ratio of the splitted bezier from 0.0 to 1.0
+   */
+  function drawBezierSplit(ctx, x0, y0, x1, y1, x2, y2, t0, t1) {
+      ctx.beginPath();
+
+  	if( 0.0 == t0 && t1 == 1.0 ) {
+  		ctx.moveTo( x0, y0 );
+  		ctx.quadraticCurveTo( x1, y1, x2, y2 );
+  	} else if( t0 != t1 ) {
+          var t00 = t0 * t0,
+              t01 = 1.0 - t0,
+              t02 = t01 * t01,
+              t03 = 2.0 * t0 * t01;
+
+          var nx0 = t02 * x0 + t03 * x1 + t00 * x2,
+              ny0 = t02 * y0 + t03 * y1 + t00 * y2;
+
+          t00 = t1 * t1;
+          t01 = 1.0 - t1;
+          t02 = t01 * t01;
+          t03 = 2.0 * t1 * t01;
+
+          var nx2 = t02 * x0 + t03 * x1 + t00 * x2,
+              ny2 = t02 * y0 + t03 * y1 + t00 * y2;
+
+          var nx1 = lerp ( lerp ( x0 , x1 , t0 ) , lerp ( x1 , x2 , t0 ) , t1 ),
+              ny1 = lerp ( lerp ( y0 , y1 , t0 ) , lerp ( y1 , y2 , t0 ) , t1 );
+
+          ctx.moveTo( nx0, ny0 );
+          ctx.quadraticCurveTo( nx1, ny1, nx2, ny2 );
+  	}
+
+      ctx.stroke();
+      ctx.closePath();
+  }
+
+  /**
+   * Linearly interpolates between two numbers
+   */
+  function lerp(v0, v1, t) {
+      return ( 1.0 - t ) * v0 + t * v1;
+  }
+
   function formatter() {
     return this;
   }
@@ -31,6 +177,332 @@
     }
     return this;
   }
+
+  function PieChart() {
+    var options = {
+      style: {
+        backgroundColor: "#282c34",
+        uiColor: "#9da5b4",
+        series: {
+          colors: ["#f45b5b", "#749C14", "#C052A9", "#1369C3"],
+          color: "alternating",
+          semiTransparent: "rgba(244, 91, 91, 1)",
+          highlighted: "#802E2A"
+        },
+        tooltip: {
+          background: ["#14161a", "#21252b"],
+          color: "#9da5b4"
+        }
+      },
+      series: {
+        tooltip: {
+          type: "inline-auto",
+          format: "%percentage%%"
+        },
+        drawCentres: false
+      }
+    }
+
+    var chart = document.createElement("canvas");
+    var ctx, width, height, center, rad;
+    var data = {};
+    var degrees = [], percentages = [], angles = [], partColors = [], partCenters = [], originalData;
+
+    var radians = this.radians = (degrees) => {
+      return degrees * Math.PI / 180;
+    }
+
+    var drawTooltip = this.drawTooltip = (x, y, text) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = options.style.tooltip.background[0];
+      x += 20;
+      y -= 8;
+
+      var boxWidth = ctx.measureText(text).width + 10;
+      let metrics = ctx.measureText(text);
+      let actualTextHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      var boxHeight = actualTextHeight + 10;
+
+      ctx.beginPath();
+
+      var modifier = 0;
+      var triangleModifier = 0;
+      var factor = 1;
+      if (boxWidth + x > width) {
+        modifier = (boxWidth + 40) * (-1);
+        triangleModifier = modifier + boxWidth;
+        factor = (-1);
+      }
+
+      ctx.moveTo(x + triangleModifier, y);
+      ctx.lineTo(x  + (-10)*factor + triangleModifier, y + boxHeight / 2);
+      ctx.lineTo(x + triangleModifier, y + boxHeight);
+      ctx.lineTo(x + 1*factor + triangleModifier, y + boxHeight);
+      ctx.lineTo(x + 1*factor + triangleModifier, y);
+      ctx.fill();
+
+      ctx.closePath();
+
+      ctx.fillRect(x + modifier, y, boxWidth, boxHeight);
+      ctx.closePath();
+
+      ctx.beginPath();
+      ctx.fillStyle = options.style.tooltip.color;
+      ctx.fillText(text, x + 5 + modifier, y + 2.5 + actualTextHeight);
+
+      ctx.closePath();
+      ctx.restore();
+    }
+
+    var getMousePos = this.getMousePos = (evt) => {
+      var rect = chart.getBoundingClientRect(), // abs. size of element
+          scaleX = chart.width / chart.width,    // relationship bitmap vs. element for X
+          scaleY = chart.height / rect.height;  // relationship bitmap vs. element for Y
+
+      return {
+        x: (evt.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
+        y: (evt.clientY - rect.top) * scaleY     // been adjusted to be relative to element
+      }
+    }
+
+    var getClosestPoint = this.getClosestPoint = (x, y) => {
+      var distances = [];
+      partCenters.forEach((point, i) => {
+        var a = point.x - x;
+        var b = point.y - y;
+        distances.push([Math.sqrt(a*a + b*b), i]);
+      });
+
+      function sortDistances(numbers) {
+        if (numbers.length >= 1) {
+          var pivot = numbers[Math.floor(Math.random()*numbers.length)];
+          var smaller = [], bigger = [], pivots = [];
+          for (let i = 0; i < numbers.length; i++) {
+            if (numbers[i][0] != pivot[0]) {
+              if (numbers[i][0] < pivot[0]) {
+                smaller.push(numbers[i]);
+              } else if (numbers[i][0] > pivot[0]){
+                bigger.push(numbers[i]);
+              } else {smaller.push(numbers[i])}
+            } else {pivots.push(pivot)}
+          }
+          bigger = sortDistances(bigger);
+          smaller = sortDistances(smaller);
+          numbers = smaller.concat(pivots).concat(bigger);
+        }
+        return numbers;
+      }
+
+      distances = sortDistances(distances);
+      return distances[0][1];
+    }
+
+    var handleHover = this.handleHover = (x, y) => {
+      let part = getClosestPoint(x, y);
+      update(part);
+
+      let format = options.series.tooltip.format.replace(/%percentage%/gi, Math.round(percentages[part]*10)/10);
+      format = format.replace(/%value%/gi, data.series[part][0]);
+      format = format.replace(/%name%/gi, data.series[part][1]);
+      drawTooltip(partCenters[part].x, partCenters[part].y, format);
+    }
+
+    var drawPointAlgo = this.drawPointAlgo = (angle) => {
+      // C (cos(90-alpha)*r + B.x | sin(90-alpha) * r + B.y)
+      angle += 180;
+      var point = {
+        x: Math.cos(((90+angle) * Math.PI)/180) * rad + center.x,
+        y: Math.sin(((90+angle) * Math.PI)/180) * rad + center.y
+      }
+      ctx.save();
+      ctx.fillStyle = "red";
+      ctx.strokeStyle = "red";
+      ctx.beginPath();
+      ctx.moveTo(center.x, center.y);
+      ctx.lineTo(center.x, center.y + rad);
+      ctx.lineTo(point.x, point.y);
+      ctx.lineTo(center.x, center.y);
+      ctx.stroke();
+      ctx.closePath();
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI, false);
+      ctx.fill();
+      ctx.closePath();
+      ctx.restore();
+    }
+
+    var algoTest = this.algoTest = (min, max, interval) => {
+      let curr = min;
+      while (curr <= max) {
+        drawPointAlgo(curr);
+        curr += interval;
+      }
+    }
+
+    var getArcPoint = this.getArcPoint = (c, r, angle) => {
+      // C (cos(90-alpha)*r + B.x | sin(90-alpha) * r + B.y)
+      angle += 180;
+      var point = {
+        x: Math.cos(((90+angle) * Math.PI)/180) * r + c.x,
+        y: Math.sin(((90+angle) * Math.PI)/180) * r + c.y
+      }
+      return point;
+    }
+
+    var drawLegend = this.drawLegend = () => {
+
+    }
+
+    var update = this.update = (highlighted) => {
+      if (degrees) {
+        ctx.save();
+        ctx.fillStyle = options.style.backgroundColor;
+        ctx.fillRect(0, 0, width, height);
+        var colors = options.style.series.colors.slice();
+
+        let a = 0;
+        let colorToggle = 0;
+        for (let i = 0; i < angles.length; i++) {
+          let part = angles[i] - 90;
+          let start = (i == 0) ? -90 : angles[i - 1] - 90;
+
+          if (options.style.series.color == "alternating") {
+            ctx.fillStyle = colors[colorToggle];
+            ctx.strokeStyle = options.style.backgroundColor;
+            colorToggle = (colorToggle == 0) ? 1 : 0;
+          } else if (options.style.series.color == "random") {
+            if (colors.length == 0) {colors = options.style.series.colors.slice();}
+            var rand = Math.floor(Math.random() * colors.length);
+            ctx.fillStyle = colors[rand];
+            ctx.strokeStyle = options.style.backgroundColor;
+            colors.splice(rand, 1);
+          }
+          if (highlighted == i) {ctx.fillStyle = options.style.series.highlighted;}
+
+          ctx.beginPath();
+          ctx.moveTo(center.x, center.y);
+          ctx.arc(center.x, center.y, rad, radians(start), radians(part));
+          ctx.moveTo(center.x, center.y);
+          ctx.stroke();
+          ctx.fill();
+          ctx.closePath();
+        }
+
+        ctx.beginPath();
+        ctx.strokeStyle = options.style.backgroundColor;
+        ctx.lineWidth = 0.6;
+        ctx.moveTo(center.x, center.y);
+        ctx.lineTo(center.x, center.y - rad);
+        ctx.stroke();
+        ctx.closePath();
+
+        if (options.series.drawCentres == true) {
+          partCenters.forEach((centre, i) => {
+            ctx.beginPath();
+            ctx.fillStyle = "red";
+            ctx.strokeStyle = "red";
+            ctx.arc(centre.x, centre.y, 3, 0, 2 * Math.PI, false);
+            ctx.stroke();
+            ctx.fill();
+            ctx.closePath();
+          });
+        }
+        ctx.restore();
+      }
+    }
+
+    var compare = this.compare = (a,b) => {
+      if (parseFloat(a) < parseFloat(b)) {
+        return -1;
+      } else if (parseFloat(a) > parseFloat(b)) {
+        return 1;
+      }
+      return 0;
+    }
+
+    var setData = this.setData = (newData) => {
+      data = newData;
+
+      if (data.options) {
+        var optionHandler = new OptionHandler(options);
+        options = optionHandler.update(data.options);
+      }
+
+      if (data.series) {
+        originalData = data.series.slice();
+        var percent = 0;
+        data.series.forEach((s, i) => {
+          percent += s[0];
+        });
+        percent /= 100;
+        data.series.forEach((seriesData, i) => {
+          percentages.push(seriesData[0] / percent);
+          degrees.push((seriesData[0] / percent) * 3.6);
+        });
+        data.series.sort((a,b) => {
+          if (parseFloat(a[0]) < parseFloat(b[0])) {
+            return -1;
+          } else if (parseFloat(a[0]) > parseFloat(b[0])) {
+            return 1;
+          }
+          return 0;
+        });
+        percentages = percentages.sort(compare);
+        degrees = degrees.sort(compare);
+        let prev = 0;
+        degrees.forEach((val, i) => {
+          angles.push(val + prev);
+          prev += val;
+        });
+        angles.forEach((angle, i) => {
+          angle -= degrees[i] / 2;
+          let point = getArcPoint(center, rad/2, angle);
+          partCenters.push(point);
+        });
+      }
+
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.fillStyle = options.style.backgroundColor;
+      ctx.font = "normal 15px normal";
+      ctx.fillRect(0, 0, width, height);
+
+      update();
+    }
+
+    var render = this.render = (opts) => {
+      let container = document.querySelector(".chart");
+      if (opts.container) {
+        if ((typeof opts.container).toLowerCase() == "string") {
+          container = document.querySelector(opts.container);
+        } else {
+          container = opts.container;
+        }
+      }
+      container.appendChild(chart);
+      chart.width = (!opts.width) ? 600 : opts.width;
+      chart.height = (!opts.height) ? 300 : opts.height;
+      chart.addEventListener("mousemove", function(event) {
+        var mousepos = getMousePos(event);
+        handleHover(mousepos.x, mousepos.y);
+      });
+      chart.addEventListener("mouseout", function(event) {
+        currentNearestPoint = null;
+        update();
+      });
+
+      width = chart.getBoundingClientRect().width; // value init
+      height = chart.getBoundingClientRect().height;
+      ctx = chart.getContext("2d");
+      center = {x: width / 4, y: height / 2};
+      rad = (height < width) ? (height - 20) / 2 : (width - 20) / 2
+
+      update();
+    }
+    return this;
+  }
+
   function Chart() {
     var width = 0; var height = 0;
     var options = {
@@ -46,17 +518,24 @@
           color: "#9da5b4"
         }
       },
+      dataGrouping: {
+        enabled: false,
+        groupCount: 10
+      },
       crossHair: {
         enabled: true,
         dot: false
       },
       barWidth: 20,
-      drawRays: false
+      drawRays: false,
+      scaleSteps: 8
     }
     var envVars = {
       horizontalSpace: 0,
       verticalMultiplier: 1,
-      highestValue: 0
+      highestValue: 0,
+      waypointCount: 10,
+      waypointArrayLength: 0
     }
 
     Object.defineProperties(this, {
@@ -75,6 +554,18 @@
           "set": function(newOpts) {
             return options = new OptionHandler(options).update(newOpts);
           }
+        },
+        "data": {
+          "get": function() {
+            return data;
+          },
+          "set": function() {console.warn("Please use chart.setData() to set a new dataset.");}
+        },
+        "chartElement": {
+          "get": function() {
+            return chart;
+          },
+          "set": function() {}
         }
     });
 
@@ -91,7 +582,7 @@
     var data = {
       /*series: {},
       xAxis: {}*/
-    };
+    }, originalData = {};
 
     this.properties = {
       get context() {
@@ -223,18 +714,66 @@
     }
 
     var handleHover = this.handleHover = (x, y) => {
-      if (data.series.type == "spline") {
-        if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
-          var point = getClosestPoint(x, y);
-          if (currentNearestPoint != point || options.crossHair.enabled || options.drawRays) update(point);
+      switch (data.series.type) {
+        case "spline":
+          if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+            var point = getClosestPoint(x, y);
+            if (currentNearestPoint != point || options.crossHair.enabled || options.drawRays) update(point);
 
-          if (options.drawRays) drawRays(x, y);
+            if (options.drawRays) drawRays(x, y);
 
-          ctx.save();
-          if (options.crossHair.enabled === true) {
+            ctx.save();
+            if (options.crossHair.enabled === true) {
+              ctx.beginPath();
+              ctx.strokeStyle = options.style.uiColor;
+
+              ctx.moveTo(widthDataOffset, y);
+              ctx.lineTo(x, y);
+
+              ctx.moveTo(x, height - heightDataOffset);
+              ctx.lineTo(x, y);
+
+              ctx.stroke();
+              ctx.closePath();
+
+              if (options.crossHair.dot === true) {
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
+                ctx.fill();
+                ctx.closePath();
+              }
+            }
+
             ctx.beginPath();
-            ctx.strokeStyle = options.style.uiColor;
+            ctx.fillStyle = options.style.uiColor;
+            ctx.font = "normal 15px normal";
 
+            var horizontalSpace = ((width - (widthDataOffset * 2)) / data.series.data.length);
+            var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+            var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+            //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
+            ctx.stroke();
+
+            if (currentNearestPoint != point || options.drawRays || options.crossHair.enabled) {
+              drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
+              currentNearestPoint = point;
+            }
+
+            ctx.closePath();
+            ctx.restore();
+          } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+            update();
+          }
+          break;
+        case "bar":
+          if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+            var point = getClosestPoint(x, y);
+            update(point);
+
+            ctx.save();
+            ctx.beginPath();
+
+            ctx.strokeStyle = options.style.uiColor;
             ctx.moveTo(widthDataOffset, y);
             ctx.lineTo(x, y);
 
@@ -243,56 +782,83 @@
 
             ctx.stroke();
             ctx.closePath();
+            ctx.restore();
+          } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+            update();
+          }
+          break;
+        case "bezier":
+          if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+            var point = getClosestPoint(x, y);
+            if (currentNearestPoint != point || options.crossHair.enabled || options.drawRays) update(point);
 
-            if (options.crossHair.dot === true) {
+            if (options.drawRays) drawRays(x, y);
+
+            ctx.save();
+            if (options.crossHair.enabled === true) {
               ctx.beginPath();
-              ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
-              ctx.fill();
+              ctx.strokeStyle = options.style.uiColor;
+
+              ctx.moveTo(widthDataOffset, y);
+              ctx.lineTo(x, y);
+
+              ctx.moveTo(x, height - heightDataOffset);
+              ctx.lineTo(x, y);
+
+              ctx.stroke();
               ctx.closePath();
+
+              if (options.crossHair.dot === true) {
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
+                ctx.fill();
+                ctx.closePath();
+              }
             }
+
+            ctx.beginPath();
+            ctx.fillStyle = options.style.uiColor;
+            ctx.font = "normal 15px normal";
+
+            var horizontalSpace = ((width - (widthDataOffset * 2)) / data.series.data.length);
+            var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+            var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+            //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
+            ctx.stroke();
+
+            if (currentNearestPoint != point || options.drawRays || options.crossHair.enabled) {
+              drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
+              currentNearestPoint = point;
+            }
+
+            ctx.closePath();
+            ctx.restore();
+          } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+            update();
           }
+          break;
+        default:
+          if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+            var point = getClosestPoint(x, y);
+            update(point);
 
-          ctx.beginPath();
-          ctx.fillStyle = options.style.uiColor;
-          ctx.font = "normal 15px normal";
+            ctx.save();
+            ctx.beginPath();
 
-          var horizontalSpace = ((width - (widthDataOffset * 2)) / data.series.data.length);
-          var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
-          var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
-          //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
-          ctx.stroke();
+            ctx.strokeStyle = options.style.uiColor;
+            ctx.moveTo(widthDataOffset, y);
+            ctx.lineTo(x, y);
 
-          if (currentNearestPoint != point || options.drawRays || options.crossHair.enabled) {
-            drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
-            currentNearestPoint = point;
+            ctx.moveTo(x, height - heightDataOffset);
+            ctx.lineTo(x, y);
+
+            ctx.stroke();
+            ctx.closePath();
+            ctx.restore();
+          } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+            update();
           }
-
-          ctx.closePath();
-          ctx.restore();
-        } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
-          update();
-        }
-      } else if (data.series.type == "bar") {
-        if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
-          var point = getClosestPoint(x, y);
-          update(point);
-
-          ctx.save();
-          ctx.beginPath();
-
-          ctx.strokeStyle = options.style.uiColor;
-          ctx.moveTo(widthDataOffset, y);
-          ctx.lineTo(x, y);
-
-          ctx.moveTo(x, height - heightDataOffset);
-          ctx.lineTo(x, y);
-
-          ctx.stroke();
-          ctx.closePath();
-          ctx.restore();
-        } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
-          update();
-        }
+          break;
       }
     }
 
@@ -301,6 +867,7 @@
     }
 
     var xAxis = this.xAxis = () => {
+      if (!data.xAxis.pointInterval) data.xAxis.pointInterval = 1;
       ctx.save();
       ctx.beginPath();
       ctx.translate(widthDataOffset + 1, (height - heightDataOffset) - 5);
@@ -314,11 +881,11 @@
       ctx.lineTo(0, 10);
       ctx.stroke();
       data.xAxis.data.forEach((point, i) => {
-        ctx.moveTo(((i + 1)*horizontalSpace), 0);
-        ctx.lineTo(((i + 1)*horizontalSpace), 10);
+        ctx.moveTo(((i + 1)*data.xAxis.pointInterval*horizontalSpace), 0);
+        ctx.lineTo(((i + 1)*data.xAxis.pointInterval*horizontalSpace), 10);
         ctx.stroke();
 
-        ctx.fillText(point, (i + 1) * horizontalSpace - (ctx.measureText(point).width / 2), 20);
+        ctx.fillText(point, (i + 1) * data.xAxis.pointInterval * horizontalSpace - (ctx.measureText(point).width / 2), 20);
       });
       if (data.xAxis.start) {
         ctx.moveTo(0, 0);
@@ -337,7 +904,7 @@
       var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
       var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
 
-      var scaleSteps = 8;
+      var scaleSteps = options.scaleSteps;
       for (let i = 1; i <= scaleSteps; i++) {
         ctx.beginPath();
         let value = highestValue / scaleSteps * i;
@@ -357,14 +924,13 @@
 
     var drawSpline = this.drawSpline = (highlighted) => {
       ctx.save();
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1;
       ctx.strokeStyle = options.style.series.color;
       ctx.fillStyle = options.style.series.color;
 
-      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
-
-      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
-      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+      var horizontalSpace = envVars.horizontalSpace;
+      var highestValue = envVars.highestValue;
+      var verticalMultiplier = envVars.verticalMultiplier;
 
       if (data.series.options.displayKnots) {
         ctx.beginPath();
@@ -374,35 +940,69 @@
         ctx.stroke();
       }
 
-      ctx.beginPath();
-      ctx.lineJoin = "miter";
-      data.series.data.forEach((seriesData, i) => {
-        seriesData *= verticalMultiplier;
-        if (data.series.options.displayKnots) {
-          ctx.beginPath();
-          ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
-          ctx.fill();
-          ctx.closePath();
-          ctx.stroke();
-        }
-
-        if (i != 0) {
-          ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
-        } else {
-          ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
-        }
-        ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
-        ctx.stroke();
-      });
-      ctx.closePath();
-
-      if (highlighted && data.series.options.displayKnots) {
+      if (typeof data.series.data[0] != "object") {
         ctx.beginPath();
-        ctx.fillStyle = options.style.series.semiTransparent;
-        ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * verticalMultiplier, 4, 0, 2 * Math.PI, false);
-        ctx.fill();
-        ctx.stroke();
+        ctx.lineJoin = "round";
+        data.series.data.forEach((seriesData, i) => {
+          seriesData *= verticalMultiplier;
+          if (data.series.options.displayKnots) {
+            ctx.beginPath();
+            ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.closePath();
+            ctx.stroke();
+          }
+
+          if (i != 0) {
+            ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
+          } else {
+            ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
+          }
+          ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
+          ctx.stroke();
+        });
         ctx.closePath();
+
+        if (highlighted && data.series.options.displayKnots) {
+          ctx.beginPath();
+          ctx.fillStyle = options.style.series.semiTransparent;
+          ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * verticalMultiplier, 4, 0, 2 * Math.PI, false);
+          ctx.fill();
+          ctx.stroke();
+          ctx.closePath();
+        }
+      } else {
+        ctx.beginPath();
+        data.series.data.forEach((dataSeries, i) => {
+          dataSeries.forEach((seriesData, i) => { // draw every spline
+            seriesData *= verticalMultiplier;
+            if (data.series.options.displayKnots) {
+              ctx.beginPath();
+              ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
+              ctx.fill();
+              ctx.closePath();
+              ctx.stroke();
+            }
+
+            if (i != 0) {
+              ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
+            } else {
+              ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
+            }
+            ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
+            ctx.stroke();
+          });
+          ctx.closePath();
+
+          if (highlighted && data.series.options.displayKnots) {
+            ctx.beginPath();
+            ctx.fillStyle = options.style.series.semiTransparent;
+            ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * verticalMultiplier, 4, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.stroke();
+            ctx.closePath();
+          }
+        });
       }
 
       ctx.restore();
@@ -418,10 +1018,67 @@
 
       data.series.data.forEach((seriesData, i) => {
         ctx.beginPath();
-        console.log(seriesData);
         ctx.fillRect(widthDataOffset + 1 + (i + 1) * horizontalSpace - (options.barWidth / 2), height - heightDataOffset - seriesData * verticalMultiplier - 1, options.barWidth, seriesData * verticalMultiplier);
         ctx.closePath();
       });
+      ctx.restore();
+    }
+
+    var drawBezier = this.drawBezier = (highlighted) => {
+      ctx.save();
+      ctx.fillStyle = options.style.series.color;
+      ctx.strokeStyle = options.style.series.color;
+
+      for (let i = 0; i <= data.series.data.length; i++) {
+        let start = {
+          x: widthDataOffset + 1 + ((i + 1) * envVars.horizontalSpace),
+          y: (height - heightDataOffset) - data.series.data[i] * envVars.verticalMultiplier
+        };
+        let end = {
+          x: widthDataOffset + 1 + ((i + 2) * envVars.horizontalSpace),
+          y: (height - heightDataOffset) - data.series.data[i + 1] * envVars.verticalMultiplier
+        }
+        if (i == 0) {
+          start.x = widthDataOffset + 1;
+          start.y = height-heightDataOffset
+        }
+        let cp1 = {
+          x: start.x + (end.x - start.x) / 2,
+          y: start.y
+        }
+        let cp2 = {
+          x: start.x + (end.x - start.x) / 2,
+          y: end.y
+        }
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, end.x, end.y);
+        ctx.stroke();
+        ctx.closePath();
+        if (i != 0) {
+          if (data.series.options.displayKnots) {
+            ctx.beginPath();
+            ctx.arc(widthDataOffset + 1 + ((i + 1) * envVars.horizontalSpace), (height - heightDataOffset) - data.series.data[i] * envVars.verticalMultiplier, 3, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.closePath();
+          }
+        } else {
+          if (data.series.options.displayKnots) {
+            ctx.beginPath();
+            ctx.arc(widthDataOffset + 1, (height - heightDataOffset), 3, 0, 2 * Math.PI, false);
+            ctx.fill();
+            ctx.closePath();
+          }
+        };
+      }
+      if (highlighted && data.series.options.displayKnots) {
+        ctx.beginPath();
+        ctx.fillStyle = options.style.series.semiTransparent;
+        ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * envVars.horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * envVars.verticalMultiplier, 4, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.stroke();
+        ctx.closePath();
+      }
       ctx.restore();
     }
 
@@ -468,31 +1125,270 @@
           case "bar":
             drawBars(highlighted);
             break;
+          case "bezier":
+            drawBezier(highlighted);
+            break;
+          case "pie":
+            break;
         }
       }
     }
 
+    // calc waypoints traveling along vertices
+    function calcWaypoints(vertices){
+      var waypoints=[];
+      for(var i=1;i<vertices.length;i++){
+        var pt0=vertices[i-1];
+        var pt1=vertices[i];
+        var dx=pt1.x-pt0.x;
+        var dy=pt1.y-pt0.y;
+        for(var j=0;j<envVars.waypointCount;j++){
+          var x=pt0.x+dx*j/envVars.waypointCount;
+          var y=pt0.y+dy*j/envVars.waypointCount;
+          waypoints.push({x:x,y:y});
+        }
+      }
+      return(waypoints);
+    }
+
+    function calcLinearWaypoints(barVertices, factor) {
+      var waypoints = [];
+      for (let index = 0; index < barVertices.length; index++) {
+        let vertices = barVertices[index];
+        var pt0 = vertices[0];
+        var pt1 = vertices[1];
+        var dx = pt1.x - pt1.x;
+        var dy = pt1.y - pt0.y;
+        for (let i = 0; i < envVars.waypointCount; i++) {
+          // f(x)=-0.75x
+          var val = (-0.75) * i;
+          var x=pt0.x+dx*val/(envVars.waypointCount);
+          var y=pt0.y+dy*val/(envVars.waypointCount);
+          waypoints.push({x:x,y:y});
+        }
+      }
+      return waypoints;
+    }
+
+    var points;
+    var t = 1, loopCount = 1, currentBar = 0;
+    var drawAnimatedSpline = this.animatedSpline = () => {
+      ctx.save();
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = options.style.series.color;
+      ctx.fillStyle = options.style.series.color;
+      /*ctx.beginPath();
+      var i = Math.floor(t / envVars.waypointCount);
+      ctx.arc(widthDataOffset + 1 + envVars.horizontalSpace * data.series.data[i], (height - heightDataOffset) - data.series.data[i] * envVars.verticalMultiplier, 3, 0, 2 * Math.PI, false);
+      ctx.fill();
+      ctx.closePath();
+      ctx.stroke();*/
+      if(t<points.length-1){ requestAnimationFrame(drawAnimatedSpline); } else { t = 1; update(); }
+
+      ctx.beginPath();
+      ctx.moveTo(points[t-1].x,points[t-1].y); // draw a line segment from the last waypoint
+      ctx.lineTo(points[t].x,points[t].y); // to the current waypoint
+      ctx.stroke();
+      ctx.restore();
+      t++;
+    }
+    var drawAnimatedBars = this.animatedBars = () => {
+      if(t<points[0].length-1){
+        requestAnimationFrame(drawAnimatedBars);
+      } else if (currentBar>=points.length - 1) {
+        t = 1;
+        currentBar = 0;
+        update();
+      } else if (currentBar<points.length - 1){
+        requestAnimationFrame(drawAnimatedBars);
+      }
+
+      var x = points[currentBar][t].x - options.barWidth / 2;
+      var y1 = points[currentBar][t - 1].y;
+      var y2 = (-1) * Math.abs(points[currentBar][t].y - y1);
+      ctx.save();
+      ctx.beginPath();
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = options.style.series.color;
+      ctx.fillStyle = options.style.series.color;
+      ctx.fillRect(x, y1 - data.series.data[currentBar] * envVars.verticalMultiplier, options.barWidth, y2);
+      if (!points[currentBar][t + 1]) {
+        t = 1;
+        currentBar++;
+      }
+      ctx.restore();
+      t++;
+      loopCount++;
+    }
+
     var setData = this.setData = (newData) => {
       data = newData;
+
+      if (data.series.data) {
+        if (options.yScale) {
+          if (options.yScale.spaceComputing == "auto") {
+            var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+            var widths = [];
+            var scaleSteps = options.scaleSteps;
+            for (let i = 1; i <= scaleSteps; i++) {
+              let value = highestValue / scaleSteps * i;
+              widths.push(ctx.measureText(value));
+            };
+            widths.sort();
+            let val = widths[widths.length - 1];
+
+            var length = ctx.measureText(val).width;
+            var res = (widthDataOffset - 11) - length;
+            if (res < 0) {
+              widthDataOffset += Math.abs(res);
+            }
+          } else if (options.yScale.spaceComputing == "highestValue") {
+            var length = ctx.measureText(highestValue).width;
+            var res = (widthDataOffset - 11) - length;
+            if (res < 0) {
+              widthDataOffset += Math.abs(res);
+            }
+          }
+        } else {
+          var length = ctx.measureText(highestValue).width;
+          var res = (widthDataOffset - 11) - length;
+          if (res < 0) {
+            widthDataOffset += Math.abs(res);
+          }
+        }
+      }
 
       if (data.options) {
         var optionHandler = new OptionHandler(options);
         options = optionHandler.update(data.options);
       }
 
+      if (data.options.dataGrouping.enabled) {
+        originalData = data;
+        let grouped = [];
+        let groupCount = options.dataGrouping.groupCount;
+        for (let i = 0; i < data.series.data.length; i+=groupCount) {
+          if (data.series.data[i]) {
+            let tmp = [];
+            for (let j = i; j < i + groupCount; j++) {
+              if (data.series.data[j]) {
+                tmp.push(data.series.data[j]);
+              } else {break;}
+            }
+            grouped.push(tmp.reduce((prev, curr) => prev + curr) / tmp.length);
+          } else {break;}
+        }
+        data.series.data = grouped;
+      }
+
       var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+      envVars.horizontalSpace = horizontalSpace;
 
       data.xAxis.data.forEach((point, i) => {
         xAxisPoints.push(widthDataOffset + (i + 1) * horizontalSpace);
       });
 
-      update();
+      ctx.clearRect(0, 0, width, height);
+
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+
+      envVars.highestValue = highestValue;
+      envVars.verticalMultiplier = verticalMultiplier;
+
+      ctx.lineJoin = "miter";
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = options.style.backgroundColor; // background color
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = options.style.uiColor; // UI
+      ctx.strokeStyle = options.style.uiColor;
+      ctx.lineWidth = 1;
+      ctx.moveTo(widthDataOffset, height - heightDataOffset);
+      ctx.lineTo(width - widthDataOffset, height - heightDataOffset);
+      ctx.moveTo(widthDataOffset, heightDataOffset);
+      ctx.lineTo(widthDataOffset + 1, height - heightDataOffset);
+      ctx.stroke();
+      ctx.closePath();
+      ctx.restore();
+
+      if (data.series) {
+        xAxis();
+        yAxis();
+
+        if (data.series.name) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.translate(0, 20);
+
+          ctx.fillStyle = options.style.series.color;
+          ctx.font = "normal 16px Calibri";
+          let x = (widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) >= 2) ? widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) : 2;
+          ctx.fillText(data.series.name, x, 0);
+
+          ctx.closePath();
+          ctx.restore();
+        }
+
+        if (!data.options.animations.enabled) {
+          update();
+        } else {
+          switch (data.series.type) {
+            case "spline":
+              var vertices = [];
+              vertices.push({x:widthDataOffset + 1, y: height - heightDataOffset});
+              data.series.data.forEach((seriesData, i) => {
+                vertices.push({x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier});
+              });
+              points = calcWaypoints(vertices);
+              window.requestAnimationFrame(drawAnimatedSpline);
+              break;
+            case "bar":
+              var vertices = [];
+              data.series.data.forEach((seriesData, i) => {
+                let start = {x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset)};
+                let end = {x: widthDataOffset + 1 + ((i + 1) * horizontalSpace), y: (height - heightDataOffset) - seriesData * verticalMultiplier};
+                vertices.push([start, end]);
+              });
+              points = calcLinearWaypoints(vertices);
+              envVars.waypointArrayLength = points.length;
+              barWaypoints = [];
+              var lastX = 0;
+              var currentIndex = -1;
+              points.forEach((point, i) => {
+                if (point.x != lastX) {
+                  lastX = point.x;
+                  barWaypoints[++currentIndex] = [point];
+                } else {
+                  barWaypoints[currentIndex].push(point);
+                }
+              });
+              points = barWaypoints;
+              window.requestAnimationFrame(drawAnimatedBars);
+              break;
+            case "bezier":
+              drawBezier(); // TODO: animate bezier curve
+              break;
+          }
+        }
+      }
     };
 
     var render = this.render = (opts) => {
-      document.querySelector(".chart").appendChild(chart);
-      chart.width = (!opts) ? 600 : opts.width;
-      chart.height = (!opts) ? 300 : opts.height;
+      let container = document.querySelector(".chart");
+      if (opts.container) {
+        if ((typeof opts.container).toLowerCase() == "string") {
+          container = document.querySelector(opts.container);
+        } else {
+          container = opts.container;
+        }
+      }
+      container.appendChild(chart);
+      chart.width = (!opts.width) ? 600 : opts.width;
+      chart.height = (!opts.height) ? 300 : opts.height;
       chart.addEventListener("mousemove", function(event) {
         var mousepos = getMousePos(event);
         handleHover(mousepos.x, mousepos.y);
@@ -502,7 +1398,7 @@
         update();
       });
       chart.addEventListener("mousewheel", function(event) {
-        handleScroll(event);
+        handleScroll(event); // TODO: Zooming
       });
 
       width = chart.getBoundingClientRect().width; // value init
@@ -517,35 +1413,64 @@
   var DATA = [1208, 1215, 1215, 1220, 1224, 1229, 1251, 1253, 1268, 1268, 1273, 1279, 1284, 1288, 1290, 1304, 1307, 1309, 1310, 1315, 1322, 1337, 1345, 1354, 1363, 1366, 1380, 1394, 1396, 1397, 1407, 1412, 1419, 1426, 1437, 1447, 1448, 1448, 1448, 1452, 1457, 1457, 1438, 1430, 1422, 1392, 1343, 1285, 1258, 1253, 1175, 1141, 1127, 1092, 1072, 1000, 791, 750, 668, 826, 885, 1003, 1118, 1185, 1321, 1771, 1710, 1688, 1451, 1401, 1302, 1183, 998, 899, 786, 769, 755, 766, 804, 842, 940, 1225, 1274, 1236, 1217, 1133, 1106, 1098, 1171, 1153, 1133, 1111, 1088, 1064, 1021, 961, 892, 856, 949, 1169];
 
   var chart = new Chart();
-  chart.render();
+  chart.render({height:400, width: 900});
+  chart.env = {waypointCount: 3};
   chart.setData({
     series: {
       name: "Corona Waves",
       type: "spline",
-      data: [30, 1, 20, 5, 10, 1, 100],
+      data: DATA, // [30, 1, 20, 5, 10, 1, 100],
       style: {
         label: {
           format: "%value% unit(s)"
         }
       },
       options: {
-        displayKnots: true
+        displayKnots: false
       }
     },
     xAxis: {
       start: "No Data",
+      pointInterval: 10,
       data: [
-        "1st wave", "", "2nd wave", "", "3rd wave", "", "4th wave"
+        "1st wave", "", "2nd wave", "", "3rd wave"
       ]
     },
+    yScale: {
+      spaceComputing: "auto"
+    },
     options: {
+      animations: {
+        enabled: true
+      },
+      dataGrouping: {
+        enabled: true,
+        groupCount: 2
+      },
       drawRays: false,
       crossHair: {
         enabled: true
       }
     }
-  }); // TODO: TELETYPE DISCORD RICH PRESENCE
+  });
+
+  var pie = new PieChart();
+  pie.render({});
+  pie.setData({
+    series: [
+      [30, "mid"], [1, "small"], [20, "light-mid"], [5, "small"], [10, "light-small"], [1, "small"], [100, "biggest"]
+    ],
+    options: {
+      series: {
+        tooltip: {
+          format: "%name% (%value% %percentage%%)"
+        }
+      }
+    }
+  });
+  // TODO: multiple splines
   // TODO: responsive height, width
+  // TODO: TELETYPE DISCORD RICH PRESENCE
   </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-### Chart.js
+# Chart.js
 
 A simple JavaScript Chart library
 

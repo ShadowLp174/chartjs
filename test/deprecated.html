@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chart.JS | Deprecated</title>
+</head>
+<body>
+  <h1>Chart.JS</h1>
+
+  <div class="chart"></div>
+
+  <div id="info">
+    <p><strong>Please note that this version is deprecated.</strong> Checkout the new Chart.JS tests with animations!</p>
+    <a href="animated.html">Animated</a>
+  </div>
+
+  <script>
+  function formatter() {
+    return this;
+  }
+  function OptionHandler(opts) {
+    var currentOptions = opts;
+    var update = this.update = (updated) => {
+      if (typeof updated == "object") {
+        for (const prop in updated) {
+          currentOptions[prop] = updated[prop];
+        }
+      } else {
+        console.warn("Passed options are not 'typeof object'! Terminated option builder.");
+      }
+      return currentOptions
+    }
+    return this;
+  }
+  function Chart() {
+    var width = 0; var height = 0;
+    var options = {
+      style: {
+        backgroundColor: "#282c34",
+        uiColor: "#9da5b4",
+        series: {
+          color: "#f45b5b",
+          semiTransparent: "rgba(244, 91, 91, 1)"
+        },
+        tooltip: {
+          background: ["#14161a", "#21252b"],
+          color: "#9da5b4"
+        }
+      },
+      crossHair: {
+        enabled: true,
+        dot: false
+      },
+      barWidth: 20,
+      drawRays: false
+    }
+    var envVars = {
+      horizontalSpace: 0,
+      verticalMultiplier: 1,
+      highestValue: 0
+    }
+
+    Object.defineProperties(this, {
+        "env": {
+             "get": function() {
+               return envVars;
+             },
+             "set": function(newEnv) {
+               return envVars = new OptionHandler(envVars).update(newEnv);
+             }
+        },
+        "options": {
+          "get": function() {
+            return options;
+          },
+          "set": function(newOpts) {
+            return options = new OptionHandler(options).update(newOpts);
+          }
+        }
+    });
+
+    var chart = document.createElement("canvas");
+    var tooltip = document.createElement("div");
+
+    var ctx;
+    var widthDataOffset = 40;
+    var heightDataOffset = 30;
+
+    var xAxisPoints = [];
+    var currentNearestPoint = null;
+
+    var data = {
+      /*series: {},
+      xAxis: {}*/
+    };
+
+    this.properties = {
+      get context() {
+        return ctx;
+      }
+    };
+
+    var quicksort = this.quicksort = (numbers) => {
+      if (numbers.length >= 1) {
+        var pivot = numbers[Math.floor(Math.random()*numbers.length)];
+        var smaller = [], bigger = [], pivots = [];
+        for (let i = 0; i < numbers.length; i++) {
+          if (numbers[i] != pivot) {
+            if (numbers[i] < pivot) {
+              smaller.push(numbers[i]);
+            } else if (numbers[i] > pivot){
+              bigger.push(numbers[i]);
+            } else {smaller.push(numbers[i])}
+          } else {pivots.push(pivot)}
+        }
+        bigger = quicksort(bigger);
+        smaller = quicksort(smaller);
+        numbers = smaller.concat(pivots).concat(bigger);
+      }
+      return numbers;
+    }
+
+    var drawTooltip = this.drawTooltip = (x, y, text) => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = options.style.tooltip.background[0];
+
+      var boxWidth = ctx.measureText(text).width + 10;
+      let metrics = ctx.measureText(text);
+      let actualTextHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      var boxHeight = actualTextHeight + 10;
+
+      ctx.beginPath();
+
+      var modifier = 0;
+      var triangleModifier = 0;
+      var factor = 1;
+      if (boxWidth + x > width) {
+        modifier = (boxWidth + 40) * (-1);
+        triangleModifier = modifier + boxWidth;
+        factor = (-1);
+      }
+
+      ctx.moveTo(x + triangleModifier, y);
+      ctx.lineTo(x  + (-10)*factor + triangleModifier, y + boxHeight / 2);
+      ctx.lineTo(x + triangleModifier, y + boxHeight);
+      ctx.lineTo(x + 1*factor + triangleModifier, y + boxHeight);
+      ctx.lineTo(x + 1*factor + triangleModifier, y);
+      ctx.fill();
+
+      ctx.closePath();
+
+      ctx.fillRect(x + modifier, y, boxWidth, boxHeight);
+      ctx.closePath();
+
+      ctx.beginPath();
+      ctx.fillStyle = options.style.tooltip.color;
+      ctx.fillText(text, x + 5 + modifier, y + 2.5 + actualTextHeight);
+
+      ctx.closePath();
+      ctx.restore();
+    }
+
+    var getMousePos = this.getMousePos = (evt) => {
+      var rect = chart.getBoundingClientRect(), // abs. size of element
+          scaleX = chart.width / chart.width,    // relationship bitmap vs. element for X
+          scaleY = chart.height / rect.height;  // relationship bitmap vs. element for Y
+
+      return {
+        x: (evt.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
+        y: (evt.clientY - rect.top) * scaleY     // been adjusted to be relative to element
+      }
+    }
+
+    var getClosestPoint = this.getClosestPoint = (x, y) => {
+      var horizontalSpace = (width - widthDataOffset * 2) / data.series.data.length;
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+      var distances = [];
+      data.series.data.forEach((point, i) => {
+        var a = (widthDataOffset + 1 + ((i + 1) * horizontalSpace)) - x;
+        var b = ((height - heightDataOffset) - point * verticalMultiplier) - y;
+        distances.push([Math.sqrt(a*a + b*b), i]);
+      });
+
+      function sortDistances(numbers) {
+        if (numbers.length >= 1) {
+          var pivot = numbers[Math.floor(Math.random()*numbers.length)];
+          var smaller = [], bigger = [], pivots = [];
+          for (let i = 0; i < numbers.length; i++) {
+            if (numbers[i][0] != pivot[0]) {
+              if (numbers[i][0] < pivot[0]) {
+                smaller.push(numbers[i]);
+              } else if (numbers[i][0] > pivot[0]){
+                bigger.push(numbers[i]);
+              } else {smaller.push(numbers[i])}
+            } else {pivots.push(pivot)}
+          }
+          bigger = sortDistances(bigger);
+          smaller = sortDistances(smaller);
+          numbers = smaller.concat(pivots).concat(bigger);
+        }
+        return numbers;
+      }
+
+      distances = sortDistances(distances);
+      return distances[0][1];
+    }
+
+    var drawRays = this.drawRays = (x, y) => {
+      ctx.save();
+      var horizontalSpace = (width - widthDataOffset * 2) / data.series.data.length;
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+      data.series.data.forEach((point, i) => {
+        ctx.beginPath();
+        ctx.strokeStyle = "green";
+        ctx.moveTo(x, y);
+        ctx.lineTo((widthDataOffset + 1 + ((i + 1) * horizontalSpace)), ((height - heightDataOffset) - point * verticalMultiplier));
+        ctx.stroke();
+        ctx.closePath();
+      });
+      ctx.restore();
+    }
+
+    var handleHover = this.handleHover = (x, y) => {
+      if (data.series.type == "spline") {
+        if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+          var point = getClosestPoint(x, y);
+          if (currentNearestPoint != point || options.crossHair.enabled || options.drawRays) update(point);
+
+          if (options.drawRays) drawRays(x, y);
+
+          ctx.save();
+          if (options.crossHair.enabled === true) {
+            ctx.beginPath();
+            ctx.strokeStyle = options.style.uiColor;
+
+            ctx.moveTo(widthDataOffset, y);
+            ctx.lineTo(x, y);
+
+            ctx.moveTo(x, height - heightDataOffset);
+            ctx.lineTo(x, y);
+
+            ctx.stroke();
+            ctx.closePath();
+
+            if (options.crossHair.dot === true) {
+              ctx.beginPath();
+              ctx.arc(x, y, 3, 0, 2 * Math.PI, false);
+              ctx.fill();
+              ctx.closePath();
+            }
+          }
+
+          ctx.beginPath();
+          ctx.fillStyle = options.style.uiColor;
+          ctx.font = "normal 15px normal";
+
+          var horizontalSpace = ((width - (widthDataOffset * 2)) / data.series.data.length);
+          var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+          var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+          //ctx.fillText(data.series.data[point], widthDataOffset + horizontalSpace * (point + 1) + 7, height - heightDataOffset - data.series.data[point] * verticalMultiplier + 4);
+          ctx.stroke();
+
+          if (currentNearestPoint != point || options.drawRays || options.crossHair.enabled) {
+            drawTooltip(widthDataOffset + 20 + ((point + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[point]*verticalMultiplier - 10, data.series.style.label.format.replace(/%value%/g, data.series.data[point]));
+            currentNearestPoint = point;
+          }
+
+          ctx.closePath();
+          ctx.restore();
+        } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+          update();
+        }
+      } else if (data.series.type == "bar") {
+        if ((x > widthDataOffset && x < width - widthDataOffset) && (y > heightDataOffset && y < height - heightDataOffset)) {
+          var point = getClosestPoint(x, y);
+          update(point);
+
+          ctx.save();
+          ctx.beginPath();
+
+          ctx.strokeStyle = options.style.uiColor;
+          ctx.moveTo(widthDataOffset, y);
+          ctx.lineTo(x, y);
+
+          ctx.moveTo(x, height - heightDataOffset);
+          ctx.lineTo(x, y);
+
+          ctx.stroke();
+          ctx.closePath();
+          ctx.restore();
+        } else if (x < widthDataOffset || x > width - widthDataOffset || y < heightDataOffset || y > height - heightDataOffset) {
+          update();
+        }
+      }
+    }
+
+    var handleScroll = this.handleScroll = (event) => {
+
+    }
+
+    var xAxis = this.xAxis = () => {
+      ctx.save();
+      ctx.beginPath();
+      ctx.translate(widthDataOffset + 1, (height - heightDataOffset) - 5);
+
+      ctx.strokeStyle = options.style.uiColor;
+      ctx.fillStyle = options.style.uiColor;
+      ctx.lineWidth = 1;
+      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, 10);
+      ctx.stroke();
+      data.xAxis.data.forEach((point, i) => {
+        ctx.moveTo(((i + 1)*horizontalSpace), 0);
+        ctx.lineTo(((i + 1)*horizontalSpace), 10);
+        ctx.stroke();
+
+        ctx.fillText(point, (i + 1) * horizontalSpace - (ctx.measureText(point).width / 2), 20);
+      });
+      if (data.xAxis.start) {
+        ctx.moveTo(0, 0);
+        ctx.fillText(data.xAxis.start, (ctx.measureText(data.xAxis.start).width / 2 * (-1)), 20);
+      }
+      ctx.closePath();
+      ctx.restore();
+    }
+
+    var yAxis = this.yAxis = () => {
+      ctx.save();
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = options.style.uiColor;
+
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+
+      var scaleSteps = 8;
+      for (let i = 1; i <= scaleSteps; i++) {
+        ctx.beginPath();
+        let value = highestValue / scaleSteps * i;
+        ctx.moveTo(widthDataOffset - 5, (height - heightDataOffset) - value*verticalMultiplier);
+        ctx.lineTo(widthDataOffset + 5, (height - heightDataOffset) - value*verticalMultiplier);
+        ctx.stroke();
+        ctx.closePath();
+
+        ctx.beginPath();
+        ctx.direction = "rlt";
+        ctx.fillStyle = options.style.uiColor;
+        ctx.fillText(value, (widthDataOffset - ctx.measureText(value.toString()).width) / 2, (height - heightDataOffset) + 3 - value*verticalMultiplier);
+        ctx.closePath();
+      }
+      ctx.restore();
+    }
+
+    var drawSpline = this.drawSpline = (highlighted) => {
+      ctx.save();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = options.style.series.color;
+      ctx.fillStyle = options.style.series.color;
+
+      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+
+      if (data.series.options.displayKnots) {
+        ctx.beginPath();
+        ctx.arc(widthDataOffset + 1, (height - heightDataOffset), 3, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      ctx.lineJoin = "miter";
+      data.series.data.forEach((seriesData, i) => {
+        seriesData *= verticalMultiplier;
+        if (data.series.options.displayKnots) {
+          ctx.beginPath();
+          ctx.arc(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData, 3, 0, 2 * Math.PI, false);
+          ctx.fill();
+          ctx.closePath();
+          ctx.stroke();
+        }
+
+        if (i != 0) {
+          ctx.moveTo(widthDataOffset + 1 + ((i + 0) * horizontalSpace), (height - heightDataOffset) - data.series.data[i - 1] * verticalMultiplier);
+        } else {
+          ctx.moveTo(widthDataOffset + 1, (height - heightDataOffset));
+        }
+        ctx.lineTo(widthDataOffset + 1 + ((i + 1) * horizontalSpace), (height - heightDataOffset) - seriesData);
+        ctx.stroke();
+      });
+      ctx.closePath();
+
+      if (highlighted && data.series.options.displayKnots) {
+        ctx.beginPath();
+        ctx.fillStyle = options.style.series.semiTransparent;
+        ctx.arc(widthDataOffset + 1 + ((highlighted + 1) * horizontalSpace), (height - heightDataOffset) - data.series.data[highlighted] * verticalMultiplier, 4, 0, 2 * Math.PI, false);
+        ctx.fill();
+        ctx.stroke();
+        ctx.closePath();
+      }
+
+      ctx.restore();
+    }
+
+    var drawBars = this.drawBars = (highlighted) => {
+      ctx.save();
+      ctx.fillStyle = options.style.series.color;
+      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+
+      var highestValue = quicksort(data.series.data)[data.series.data.length - 1];
+      var verticalMultiplier = (height - (heightDataOffset * 2) - 10) / highestValue;
+
+      data.series.data.forEach((seriesData, i) => {
+        ctx.beginPath();
+        console.log(seriesData);
+        ctx.fillRect(widthDataOffset + 1 + (i + 1) * horizontalSpace - (options.barWidth / 2), height - heightDataOffset - seriesData * verticalMultiplier - 1, options.barWidth, seriesData * verticalMultiplier);
+        ctx.closePath();
+      });
+      ctx.restore();
+    }
+
+    var update = this.update = (highlighted) => {
+      ctx.lineJoin = "round";
+      ctx.save();
+      ctx.beginPath();
+      ctx.fillStyle = options.style.backgroundColor; // background color
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = options.style.uiColor; // UI
+      ctx.strokeStyle = options.style.uiColor;
+      ctx.lineWidth = 1;
+      ctx.moveTo(widthDataOffset, height - heightDataOffset);
+      ctx.lineTo(width - widthDataOffset, height - heightDataOffset);
+      ctx.moveTo(widthDataOffset, heightDataOffset);
+      ctx.lineTo(widthDataOffset + 1, height - heightDataOffset);
+      ctx.stroke();
+      ctx.closePath();
+      ctx.restore();
+
+      if (data.series) {
+        xAxis();
+        yAxis();
+
+        if (data.series.name) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.translate(0, 20);
+
+          ctx.fillStyle = options.style.series.color;
+          ctx.font = "normal 16px Calibri";
+          let x = (widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) >= 2) ? widthDataOffset / 2 - (ctx.measureText(data.series.name).width / 2) : 2;
+          ctx.fillText(data.series.name, x, 0);
+
+          ctx.closePath();
+          ctx.restore();
+        }
+
+        switch (data.series.type) {
+          case "spline":
+            drawSpline(highlighted);
+            break;
+          case "bar":
+            drawBars(highlighted);
+            break;
+        }
+      }
+    }
+
+    var setData = this.setData = (newData) => {
+      data = newData;
+
+      if (data.options) {
+        var optionHandler = new OptionHandler(options);
+        options = optionHandler.update(data.options);
+      }
+
+      var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
+
+      data.xAxis.data.forEach((point, i) => {
+        xAxisPoints.push(widthDataOffset + (i + 1) * horizontalSpace);
+      });
+
+      update();
+    };
+
+    var render = this.render = (opts) => {
+      document.querySelector(".chart").appendChild(chart);
+      chart.width = (!opts) ? 600 : opts.width;
+      chart.height = (!opts) ? 300 : opts.height;
+      chart.addEventListener("mousemove", function(event) {
+        var mousepos = getMousePos(event);
+        handleHover(mousepos.x, mousepos.y);
+      });
+      chart.addEventListener("mouseout", function(event) {
+        currentNearestPoint = null;
+        update();
+      });
+      chart.addEventListener("mousewheel", function(event) {
+        handleScroll(event);
+      });
+
+      width = chart.getBoundingClientRect().width; // value init
+      height = chart.getBoundingClientRect().height;
+      ctx = chart.getContext("2d");
+
+      update();
+    }
+    return this;
+  }
+
+  var DATA = [1208, 1215, 1215, 1220, 1224, 1229, 1251, 1253, 1268, 1268, 1273, 1279, 1284, 1288, 1290, 1304, 1307, 1309, 1310, 1315, 1322, 1337, 1345, 1354, 1363, 1366, 1380, 1394, 1396, 1397, 1407, 1412, 1419, 1426, 1437, 1447, 1448, 1448, 1448, 1452, 1457, 1457, 1438, 1430, 1422, 1392, 1343, 1285, 1258, 1253, 1175, 1141, 1127, 1092, 1072, 1000, 791, 750, 668, 826, 885, 1003, 1118, 1185, 1321, 1771, 1710, 1688, 1451, 1401, 1302, 1183, 998, 899, 786, 769, 755, 766, 804, 842, 940, 1225, 1274, 1236, 1217, 1133, 1106, 1098, 1171, 1153, 1133, 1111, 1088, 1064, 1021, 961, 892, 856, 949, 1169];
+
+  var chart = new Chart();
+  chart.render();
+  chart.setData({
+    series: {
+      name: "Corona Waves",
+      type: "spline",
+      data: [30, 1, 20, 5, 10, 1, 100],
+      style: {
+        label: {
+          format: "%value% unit(s)"
+        }
+      },
+      options: {
+        displayKnots: true
+      }
+    },
+    xAxis: {
+      start: "No Data",
+      data: [
+        "1st wave", "", "2nd wave", "", "3rd wave", "", "4th wave"
+      ]
+    },
+    options: {
+      drawRays: false,
+      crossHair: {
+        enabled: true
+      }
+    }
+  }); // TODO: TELETYPE DISCORD RICH PRESENCE
+  // TODO: responsive height, width
+  </script>
+</body>
+</html>
