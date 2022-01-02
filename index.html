@@ -71,7 +71,7 @@
 
   <script>
   /**
-   * Animates bezier-curve
+   * Animates bezier-curve  .... Code by Patrick Galbraith
    *
    * @param ctx       The canvas context to draw to
    * @param x0        The x-coord of the start point
@@ -516,6 +516,10 @@
         tooltip: {
           background: ["#14161a", "#21252b"],
           color: "#9da5b4"
+        },
+        button: {
+          background: "#14161a",
+          color: "#9da5b4"
         }
       },
       dataGrouping: {
@@ -583,6 +587,7 @@
       /*series: {},
       xAxis: {}*/
     }, originalData = {};
+    var buttons = [];
 
     this.properties = {
       get context() {
@@ -610,9 +615,44 @@
       return numbers;
     }
 
+    var drawBtns = this.drawBtns = () => {
+      ctx.save();
+      ctx.fillStyle = options.style.button.background;
+      buttons.forEach((btn, i) => {
+        ctx.fillRect(btn.x1, btn.y1, btn.width, btn.height);
+        ctx.fillStyle = options.style.button.color;
+        ctx.font = "normal 15px normal";
+        ctx.fillText(btn.text, btn.x1 + 5, btn.y1 + 2.5 + btn.height - 7);
+      });
+      ctx.restore();
+    }
+
+    var addBtn = this.addBtn = (x, y, text, callback) => {
+      let metrics = ctx.measureText(text);
+      var boxWidth = metrics.width + 10;
+      let actualTextHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      var boxHeight = actualTextHeight + 10;
+
+      var btn = {
+        x1: x,
+        y1: y,
+        x2: x + boxWidth + 10,
+        y2: y + actualTextHeight + 10,
+        width: boxWidth + 10,
+        height: actualTextHeight + 10,
+        text: text,
+        callback: callback
+      }
+      buttons.push(btn);
+      update();
+    }
+
+    var ex = this.export = () => {
+
+    }
+
     var drawTooltip = this.drawTooltip = (x, y, text) => {
       ctx.save();
-      ctx.beginPath();
       ctx.fillStyle = options.style.tooltip.background[0];
 
       var boxWidth = ctx.measureText(text).width + 10;
@@ -711,6 +751,14 @@
         ctx.closePath();
       });
       ctx.restore();
+    }
+
+    var handleClick = this.handleClick = (x, y) => {
+      buttons.forEach((btn, i) => {
+        if (btn.x1 < x && x < btn.x2 && btn.y2 > y && btn.y1 < y) {
+          btn.callback(x, y, {element: chart,chartObject: this});
+        }
+      });
     }
 
     var handleHover = this.handleHover = (x, y) => {
@@ -1082,7 +1130,11 @@
       ctx.restore();
     }
 
-    var update = this.update = (highlighted) => {
+    var drawAnimatedBezier = this.drawAnimatedBezier = () => {
+
+    }
+
+    var update = this.update = (highlighted, displayData) => {
       ctx.lineJoin = "round";
       ctx.save();
       ctx.beginPath();
@@ -1104,6 +1156,10 @@
         xAxis();
         yAxis();
 
+        if (buttons.length > 0) {
+          drawBtns();
+        }
+
         if (data.series.name) {
           ctx.save();
           ctx.beginPath();
@@ -1118,18 +1174,20 @@
           ctx.restore();
         }
 
-        switch (data.series.type) {
-          case "spline":
-            drawSpline(highlighted);
-            break;
-          case "bar":
-            drawBars(highlighted);
-            break;
-          case "bezier":
-            drawBezier(highlighted);
-            break;
-          case "pie":
-            break;
+        if (displayData != false) {
+          switch (data.series.type) {
+            case "spline":
+              drawSpline(highlighted);
+              break;
+            case "bar":
+              drawBars(highlighted);
+              break;
+            case "bezier":
+              drawBezier(highlighted);
+              break;
+            case "pie":
+              break;
+          }
         }
       }
     }
@@ -1263,25 +1321,29 @@
       if (data.options) {
         var optionHandler = new OptionHandler(options);
         options = optionHandler.update(data.options);
-      }
 
-      if (data.options.dataGrouping.enabled) {
-        originalData = data;
-        let grouped = [];
-        let groupCount = options.dataGrouping.groupCount;
-        for (let i = 0; i < data.series.data.length; i+=groupCount) {
-          if (data.series.data[i]) {
-            let tmp = [];
-            for (let j = i; j < i + groupCount; j++) {
-              if (data.series.data[j]) {
-                tmp.push(data.series.data[j]);
+        if (data.options.dataGrouping) {
+          if (data.options.dataGrouping.enabled) {
+            originalData = data;
+            let grouped = [];
+            let groupCount = options.dataGrouping.groupCount;
+            for (let i = 0; i < data.series.data.length; i+=groupCount) {
+              if (data.series.data[i]) {
+                let tmp = [];
+                for (let j = i; j < i + groupCount; j++) {
+                  if (data.series.data[j]) {
+                    tmp.push(data.series.data[j]);
+                  } else {break;}
+                }
+                grouped.push(tmp.reduce((prev, curr) => prev + curr) / tmp.length);
               } else {break;}
             }
-            grouped.push(tmp.reduce((prev, curr) => prev + curr) / tmp.length);
-          } else {break;}
+            data.series.data = grouped;
+          }
         }
-        data.series.data = grouped;
       }
+
+      if (!data.xAxis) {data.xAxis = {};};
 
       var horizontalSpace = (width - (widthDataOffset * 2)) / data.series.data.length;
       envVars.horizontalSpace = horizontalSpace;
@@ -1319,6 +1381,16 @@
         xAxis();
         yAxis();
 
+        /*addBtn(width - (widthDataOffset / 2 + 10), heightDataOffset / 2, "S", (x, y, data) => {
+          var a = document.createElement("a");
+          a.href = data.element.toDataURL();
+          a.download = "chart.png";
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        });*/
+
         if (data.series.name) {
           ctx.save();
           ctx.beginPath();
@@ -1336,6 +1408,7 @@
         if (!data.options.animations.enabled) {
           update();
         } else {
+          update(0, false);
           switch (data.series.type) {
             case "spline":
               var vertices = [];
@@ -1400,6 +1473,10 @@
       chart.addEventListener("mousewheel", function(event) {
         handleScroll(event); // TODO: Zooming
       });
+      chart.addEventListener("click", function(event) {
+        var mousepos = getMousePos(event);
+        handleClick(mousepos.x, mousepos.y);
+      })
 
       width = chart.getBoundingClientRect().width; // value init
       height = chart.getBoundingClientRect().height;
